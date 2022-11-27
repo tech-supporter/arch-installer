@@ -23,7 +23,7 @@ pacman -Sy
 if [[ ${UEFI_enabled} ]] then
     echo "Installing UEFI boot loader..."
     bootctl install
-else
+#else
     # install MBR boot loader syslinux
 fi
 

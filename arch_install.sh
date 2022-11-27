@@ -245,14 +245,14 @@ echo "Editing sudoer's file..."
 echo "%wheel ALL=(ALL:ALL) ALL" >> /mnt/etc/sudoers
 echo "Defaults rootpw" >> /mnt/etc/sudoers
 
-if [[ ${UEFI_enabled} ]] then
+if [${UEFI_enabled}]; then
     # make UEFI boot loader file
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
     echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
     echo "initrd /intel-ucode.img" >> /mnt/boot/loader/entries/arch.conf
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
-else
+#else
     # make basic MBR boot loader
 fi
 
