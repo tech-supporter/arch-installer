@@ -257,7 +257,7 @@ if [${UEFI_enabled}]; then
 fi
 
 # chroot into and configure new install
-cp /arch_install_chroot.sh /mnt/root/.
+cp ${0}/arch_install_chroot.sh /mnt/root/.
 
 arch-chroot /mnt << chroot_commands
 /root/arch_install_chroot.sh ${UEFI_enabled} ${root_password}
