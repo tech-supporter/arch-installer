@@ -249,11 +249,9 @@ if $UEFI_enabled; then
     # make UEFI boot loader file
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
     echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
-    echo "initrd /intel-ucode.img" >> /mnt/boot/loader/entries/arch.conf
+    echo "initrd /${architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
-#else
-    # make basic MBR boot loader
 fi
 
 # chroot into and configure new install
@@ -271,14 +269,21 @@ chroot_commands
 
 # install correct boot loader
 if $UEFI_enabled; then
-arch-chroot /mnt << chroot_commands
+    arch-chroot /mnt << chroot_commands
 bootctl install
 chroot_commands
+else
+    # install syslinux MBR
+    syslinux-install_update -i -a -m -c /mnt
+
+    # configure boot loader entry
+    sed -i "55 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
+    sed -i "62 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
 fi
 
 echo "Base installation complete!"
 sleep 1
-shutdown_count=10
+shutdown_count=30
 echo "Shutting down in ${shutdown_count} seconds: Remove USB boot drive before starting computer back up"
 while [[ ${shutdown_count} > 0 ]]; do
     echo ${shutdown_count}
