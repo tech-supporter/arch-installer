@@ -153,13 +153,13 @@ n
 p
 2
 
-+${swap_size}1GiB
++${swap_size}GiB
 y
 n
 p
 3
 
-+${root_size}1GiB
++${root_size}GiB
 y
 n
 p
