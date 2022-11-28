@@ -1,10 +1,8 @@
 #!/usr/bin/bash
 
-#startup
+# startup
 clear
 echo "Installing arch linux..."
-sleep 1
-
 pacman -Sy
 
 # check if we're in UEFI mode
@@ -13,8 +11,8 @@ if ! [[ ${UEFI_Vars:0:13} = "efivar: error" ]]; then
     UEFI_enabled=true
     echo "UEFI mode enabled."
 else
-    read -p "Warning: UEFI mode is not enabled. Reboot for bios menu? (y/n)" confirm
-    if [ ${confirm} = 'y' ]; then
+    read -p "Warning: UEFI mode is not enabled. Reboot for bios menu? (Y/n): " confirm
+    if [ -z ${confirm} ] || [ ${confirm} = 'y' ]; then
         reboot
     else
         UEFI_enabled=false
@@ -25,13 +23,13 @@ fi
 # choose cpu architecture/band
 architecture=''
 while [[ ${architecture} != i* ]] && [[ ${architecture} != a* ]]; do
-    read -p "Choose CPU architecture/brand, (intel/amd)" typed
+    read -p "Choose CPU architecture/brand, (intel/amd): " typed
     if [[ ${typed} == i* ]]; then
         architecture="intel"
     elif [[ ${typed} == a* ]]; then
         architecture="amd"
     else
-        echo "Invalid CPU architecture/brand"
+        echo "Invalid CPU architecture/brand: ${typed}"
     fi
 done
 echo "Using ${architecture} CPU architecture/brand"
@@ -49,8 +47,8 @@ echo "****"
 # pick swap size
 mem_size_raw=$(awk '/^Mem/{print $2}' <(free -g))
 default_swap_size=$((${mem_size_raw}+1))
-read -p "Default swap size = ram size: ${default_swap_size}GiB. Use default? (y/n)" confirm
-if [ ${confirm} = 'y' ]; then
+read -p "Default swap size = ram size: ${default_swap_size}GiB. Use default? (Y/n): " confirm
+if [ -z ${confirm} ] || [ ${confirm} = 'y' ]; then
     echo "Using default swap size."
     swap_size=$default_swap_size
 else
@@ -71,8 +69,8 @@ echo "Swap size is: ${swap_size}GiB"
 
 # pick root partition size
 default_root_size=64
-read -p "Default root partition size: ${default_root_size}GiB. Use default? (y/n)" confirm
-if [ ${confirm} = 'y' ]; then
+read -p "Default root partition size: ${default_root_size}GiB. Use default? (Y/n): " confirm
+if [ -z ${confirm} ] || [ ${confirm} = 'y' ]; then
     echo "Using default root partition size."
     root_size=${default_root_size}
 else
@@ -97,12 +95,12 @@ confirm='n'
 while ! [ ${confirm} = 'y' ]; do
     lsblk
     read -p "Choose primary drive to use. Note drive will be cleared: " primary_drive
-    read -p "Please confirm this is the correct drive: ${primary_drive} (y/n)" confirm
+    read -p "Please confirm this is the correct drive: ${primary_drive} (y/N): " confirm
 done
 
 # clear primary drive partitions
 echo "Clearing out primary drive: ${primary_drive}.."
-gdisk "/dev/"${primary_drive} << clear_commands
+gdisk "/dev/${primary_drive}" << clear_commands
 
 x
 z
