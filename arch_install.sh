@@ -111,28 +111,24 @@ y
 clear_commands
 
 # create new partitions
-boot_partition_type='8300'
 if $UEFI_enabled; then
-    boot_partition_type='EF00'
-fi
-
 gdisk /dev/$primary_drive << partition_commands
 o
 y
 n
 1
 
-+1Gi
-${boot_partition_type}
++1GiB
+EF00
 n
 2
 
-+${swap_size}Gi
++${swap_size}GiB
 8200
 n
 3
 
-+${root_size}Gi
++${root_size}GiB
 8300
 n
 4
@@ -143,6 +139,40 @@ w
 y
 q
 partition_commands
+else
+fdisk /dev/$primary_drive << partition_commands
+o
+y
+n
+p
+1
+
++1GiB
+y
+n
+p
+2
+
++${swap_size}1GiB
+y
+n
+p
+3
+
++${root_size}1GiB
+y
+n
+p
+4
+
+t
+2
+82
+w
+y
+q
+partition_commands
+fi
 
 boot_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 1$)
 swap_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 2$)
