@@ -36,7 +36,7 @@ echo "Using ${architecture} CPU architecture/brand"
 
 #choose computer name
 read -p "Choose computer name: " pretty_computer_name
-computer_name=$(echo ${pretty_computer_name} | tr -dc '[:alnum:]' | sed 's/ /-/')
+computer_name=$(echo ${pretty_computer_name} | tr ' ' '-' | tr -dc '[:alnum:]-')
 echo "Computer name: "${pretty_computer_name}
 echo "Internal name: "${computer_name}
 
