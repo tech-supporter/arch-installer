@@ -156,20 +156,21 @@ mkfs.fat -F32 ${boot_part} << mkfat
 y
 mkfat
 else
-mkfs.ext4 -L boot -O '^64bit' ${boot_part}
+mkfs.ext4 -L boot -O '^64bit' ${boot_part} << mkfs_cmds
 y
-mkfs_2
+mkfs_cmds
 fi
 
 mkswap ${swap_part}
 swapon ${swap_part}
 
-mkfs.ext4 ${root_part} << mkfs_3
+mkfs.ext4 ${root_part} << mkfs_cmds
 y
-mkfs_3
-mkfs.ext4 ${home_part} << mkfs_4
+mkfs_cmds
+
+mkfs.ext4 ${home_part} << mkfs_cmds
 y
-mkfs_4
+mkfs_cmds
 
 mount ${root_part} /mnt
 mkdir /mnt/boot
