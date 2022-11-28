@@ -36,7 +36,7 @@ echo "Using ${architecture} CPU architecture/brand"
 
 #choose computer name
 read -p "Choose computer name: " pretty_computer_name
-computer_name=$(echo ${pretty_computer_name} | tr -dc '[:alnum:]')
+computer_name=$(echo ${pretty_computer_name} | tr -dc '[:alnum:]' | sed 's/ /-/')
 echo "Computer name: "${pretty_computer_name}
 echo "Internal name: "${computer_name}
 
@@ -213,10 +213,6 @@ echo "Setting locale..."
 echo "en_US.UTF-8 UTF-8" > /mnt/etc/locale.gen
 echo "LANG=en_US.UTF-8" > /mnt/etc/locale.conf
 
-# link time zone
-echo "Linking localtime file..."
-ln -s /mnt/usr/share/zoneinfo/America/Chicago /mnt/etc/localtime
-
 # setup hostname
 echo "Configuring host name..."
 echo ${computer_name} > /mnt/etc/hostname
@@ -259,6 +255,7 @@ fi
 arch-chroot /mnt << chroot_commands
 locale-gen
 export LANG=en_US.UTF-8
+ln -s /usr/share/zoneinfo/America/Chicago /etc/localtime
 hwclock --systohc --utc
 pacman -Sy
 systemctl enable NetworkManager.service
