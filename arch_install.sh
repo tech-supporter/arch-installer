@@ -293,7 +293,10 @@ syslinux_install_commands
     # install syslinux MBR
     syslinux-install_update -i -a -m -c /mnt
 
+    root_part_uuid=$(blkid -s PARTUUID -o value ${root_part})
+
     # configure boot loader entry
+    sed -i "s/root=/root=PARTUUID=${root_part_uuid}/"
     sed -i "55 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
     sed -i "62 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
 fi
