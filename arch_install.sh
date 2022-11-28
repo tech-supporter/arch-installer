@@ -296,7 +296,7 @@ syslinux_install_commands
     root_part_uuid=$(blkid -s PARTUUID -o value ${root_part})
 
     # configure boot loader entry
-    sed -i "s/root=/root=PARTUUID=${root_part_uuid}/" /mnt/boot/syslinux/syslinux.cfg
+    sed -i "s.root=${root_part}.root=PARTUUID=${root_part_uuid}." /mnt/boot/syslinux/syslinux.cfg
     sed -i "55 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
     sed -i "62 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
 fi
