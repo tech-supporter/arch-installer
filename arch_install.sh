@@ -35,14 +35,21 @@ done
 echo "Using ${architecture} CPU architecture/brand"
 
 # choose computer name
-read -p "Choose computer name: " pretty_computer_name
+pretty_computer_name=''
+while [ -z ${pretty_computer_name} ]; do
+    read -p "Choose computer name: " pretty_computer_name
+    if [[ -z ${pretty_computer_name} ]]; then
+        echo "Invalid computer name."
+    fi
+done
+
 computer_name=$(echo ${pretty_computer_name} | tr ' ' '-' | tr -dc '[:alnum:]-')
 echo "Computer name: "${pretty_computer_name}
-echo "Internal name: "${computer_name}
+echo "Internal host name: "${computer_name}
 
 # choose root password
 read -s -p "Choose root password: " root_password
-echo "****"
+printf "%${#root_password}s\n" | tr ' ' '*'
 
 # pick swap size
 mem_size_raw=$(awk '/^Mem/{print $2}' <(free -g))
@@ -296,12 +303,17 @@ syslinux_install_commands
 fi
 
 echo "Base installation complete!"
-sleep 1
-shutdown_count=10
+shutdown_count=30
 echo "Shutting down in ${shutdown_count} seconds: Remove USB boot drive before starting computer back up"
+echo "Press the Enter Key to shutdown now."
+input=false
 while [[ ${shutdown_count} > 0 ]]; do
     echo ${shutdown_count}
-    sleep 1
+    read -t 1 input
+    # not sure how this works but checks if they entered something vs timing out
+    if [[ $? -gt 128 ]]; then
+        ((shutdown_count=0))
+    fi
     ((shutdown_count=shutdown_count-1))
 done
 shutdown now
