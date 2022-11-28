@@ -111,9 +111,7 @@ clear_commands
 #echo "Clearing out MBR/GPT..."
 #dd if=/dev/zero of="/dev/"${primary_drive} bs=1GiB count=1
 
-if $UEFI_enabled; then
-    # create new partitions
-    gdisk /dev/$primary_drive << partition_commands
+gdisk /dev/$primary_drive << partition_commands
 o
 y
 n
@@ -140,39 +138,17 @@ w
 y
 q
 partition_commands
-    boot_part="/dev/"${primary_drive}"1"
-    swap_part="/dev/"${primary_drive}"2"
-    root_part="/dev/"${primary_drive}"3"
-    home_part="/dev/"${primary_drive}"4"
-    echo ${boot_part}
-    echo ${swap_part}
-    echo ${root_part}
-    echo ${home_part}
-else
-    # create new partitions
-    part_table=""
-    echo "label: dos" >> part_table
-    echo "" >> part_table
-    echo " : size=${swap_size}GiB, type=82" >> part_table
-    echo " : size=${root_size}GiB, type=83" >> part_table
-    echo " : type=83" >> part_table
-    sfdisk /dev/${primary_drive} < part_table
 
-    swap_part="/dev/"${primary_drive}"1"
-    root_part="/dev/"${primary_drive}"2"
-    home_part="/dev/"${primary_drive}"3"
-    echo ${swap_part}
-    echo ${root_part}
-    echo ${home_part}
-fi
+boot_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${1}$
+swap_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${2}$
+root_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${3}$
+home_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${4}$
 
 # create and mount directories/file systems
 echo "Making Partitions..."
-if $UEFI_enabled; then
-    mkfs.fat -F32 ${boot_part} << mkfat
+mkfs.fat -F32 ${boot_part} << mkfat
 y
 mkfat
-fi
 
 mkswap ${swap_part}
 swapon ${swap_part}
@@ -185,10 +161,8 @@ y
 mkfs_4
 
 mount ${root_part} /mnt
-if $UEFI_enabled; then
-    mkdir /mnt/boot
-    mount ${boot_part} /mnt/boot
-fi
+mkdir /mnt/boot
+mount ${boot_part} /mnt/boot
 mkdir /mnt/home
 mount ${home_part} /mnt/home
 lsblk
@@ -241,16 +215,6 @@ echo "Editing sudoer's file..."
 echo "%wheel ALL=(ALL:ALL) ALL" >> /mnt/etc/sudoers
 echo "Defaults rootpw" >> /mnt/etc/sudoers
 
-if $UEFI_enabled; then
-    # make UEFI boot loader file
-    mkdir -p /mnt/boot/loader/entries
-    echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
-    echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
-    echo "initrd /${architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
-    echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
-    echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
-fi
-
 # chroot into and configure new install
 arch-chroot /mnt << chroot_commands
 locale-gen
@@ -265,11 +229,18 @@ ${root_password}
 ${root_password}
 chroot_commands
 
-# install correct boot loader
+# install/configure correct boot loader
 if $UEFI_enabled; then
     arch-chroot /mnt << chroot_commands
 bootctl install
 chroot_commands
+    # make UEFI boot loader file
+    mkdir -p /mnt/boot/loader/entries
+    echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
+    echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
+    echo "initrd /${architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
+    echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
+    echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
 else
     # install syslinux MBR
     syslinux-install_update -i -a -m -c /mnt
@@ -281,7 +252,7 @@ fi
 
 echo "Base installation complete!"
 sleep 1
-shutdown_count=30
+shutdown_count=10
 echo "Shutting down in ${shutdown_count} seconds: Remove USB boot drive before starting computer back up"
 while [[ ${shutdown_count} > 0 ]]; do
     echo ${shutdown_count}
