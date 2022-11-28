@@ -138,10 +138,10 @@ y
 q
 partition_commands
 
-boot_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 1$
-swap_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 2$
-root_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 3$
-home_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 4$
+boot_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 1$)
+swap_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 2$)
+root_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 3$)
+home_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 4$)
 
 # create and mount directories/file systems
 echo "Making Partitions..."
@@ -241,7 +241,7 @@ chroot_commands
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
 else
-    pacstrp -i /mnt syslinux
+    pacstrap -i /mnt syslinux
 
     # install syslinux MBR
     syslinux-install_update -i -a -m -c /mnt
