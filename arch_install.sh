@@ -110,6 +110,12 @@ y
 y
 clear_commands
 
+# create new partitions
+boot_partition_type='8300'
+if $UEFI_enabled; then
+    boot_partition_type='EF00'
+fi
+
 gdisk /dev/$primary_drive << partition_commands
 o
 y
@@ -117,7 +123,7 @@ n
 1
 
 +1Gi
-EF00
+${boot_partition_type}
 n
 2
 
