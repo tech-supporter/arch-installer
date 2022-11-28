@@ -150,10 +150,16 @@ root_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 3
 home_part=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 4$)
 
 # create and mount directories/file systems
-echo "Making Partitions..."
+echo "Making file systems..."
+if $UEFI_enabled; then
 mkfs.fat -F32 ${boot_part} << mkfat
 y
 mkfat
+else
+mkfs.ext4 -L boot -O '^64bit' ${boot_part}
+y
+mkfs_2
+fi
 
 mkswap ${swap_part}
 swapon ${swap_part}
