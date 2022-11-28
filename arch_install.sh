@@ -247,6 +247,7 @@ echo "Defaults rootpw" >> /mnt/etc/sudoers
 
 if $UEFI_enabled; then
     # make UEFI boot loader file
+    mkdir -p /mnt/boot/loader/entries
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
     echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
     echo "initrd /${architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
