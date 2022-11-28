@@ -241,7 +241,8 @@ chroot_commands
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
 else
-    pacstrap -i /mnt syslinux << syslinux_install_commands
+pacstrap -i /mnt syslinux << syslinux_install_commands
+
 y
 syslinux_install_commands
     # install syslinux MBR
