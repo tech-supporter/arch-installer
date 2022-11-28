@@ -5,7 +5,9 @@ clear
 echo "Installing arch linux..."
 sleep 1
 
-#check in UEFI mode
+pacman -Sy
+
+# check if we're in UEFI mode
 UEFI_Vars=$(efivar -l 2>&1)
 if ! [[ ${UEFI_Vars:0:13} = "efivar: error" ]]; then
     UEFI_enabled=true
@@ -20,7 +22,7 @@ else
     fi
 fi
 
-#choose cpu architecture/band
+# choose cpu architecture/band
 architecture=''
 while [[ ${architecture} != i* ]] && [[ ${architecture} != a* ]]; do
     read -p "Choose CPU architecture/brand, (intel/amd)" typed
@@ -34,17 +36,17 @@ while [[ ${architecture} != i* ]] && [[ ${architecture} != a* ]]; do
 done
 echo "Using ${architecture} CPU architecture/brand"
 
-#choose computer name
+# choose computer name
 read -p "Choose computer name: " pretty_computer_name
 computer_name=$(echo ${pretty_computer_name} | tr ' ' '-' | tr -dc '[:alnum:]-')
 echo "Computer name: "${pretty_computer_name}
 echo "Internal name: "${computer_name}
 
-#choose root password
+# choose root password
 read -s -p "Choose root password: " root_password
 echo "****"
 
-#pick swap size
+# pick swap size
 mem_size_raw=$(awk '/^Mem/{print $2}' <(free -g))
 default_swap_size=$((${mem_size_raw}+1))
 read -p "Default swap size = ram size: ${default_swap_size}GiB. Use default? (y/n)" confirm
@@ -67,7 +69,7 @@ else
 fi
 echo "Swap size is: ${swap_size}GiB"
 
-#pick root partition size
+# pick root partition size
 default_root_size=64
 read -p "Default root partition size: ${default_root_size}GiB. Use default? (y/n)" confirm
 if [ ${confirm} = 'y' ]; then
@@ -90,7 +92,7 @@ else
 fi
 echo "Root Partition size is: ${root_size}GiB"
 
-#choose primary drive
+# choose primary drive
 confirm='n'
 while ! [ ${confirm} = 'y' ]; do
     lsblk
@@ -107,9 +109,6 @@ z
 y
 y
 clear_commands
-
-#echo "Clearing out MBR/GPT..."
-#dd if=/dev/zero of="/dev/"${primary_drive} bs=1GiB count=1
 
 gdisk /dev/$primary_drive << partition_commands
 o
@@ -139,10 +138,10 @@ y
 q
 partition_commands
 
-boot_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${1}$
-swap_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${2}$
-root_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${3}$
-home_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep ${4}$
+boot_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 1$
+swap_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 2$
+root_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 3$
+home_part=fdisk -l | awk '/^\/dev/{print $1}' | grep ${primary_drive} | grep 4$
 
 # create and mount directories/file systems
 echo "Making Partitions..."
@@ -242,6 +241,8 @@ chroot_commands
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
 else
+    pacstrp -i /mnt syslinux
+
     # install syslinux MBR
     syslinux-install_update -i -a -m -c /mnt
 
