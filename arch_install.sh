@@ -111,9 +111,9 @@ clear_commands
 #echo "Clearing out MBR/GPT..."
 #dd if=/dev/zero of="/dev/"${primary_drive} bs=1GiB count=1
 
-if [${UEFI_enabled}]; then
+if $UEFI_enabled; then
     # create new partitions
-    gdisk "/dev/"${primary_drive} << partition_commands
+    gdisk /dev/$primary_drive << partition_commands
 o
 y
 n
@@ -124,12 +124,12 @@ EF00
 n
 2
 
-+${swap_size}GiB
++${swap_size}Gi
 8200
 n
 3
 
-+${root_size}GiB
++${root_size}Gi
 8300
 n
 4
@@ -168,7 +168,7 @@ fi
 
 # create and mount directories/file systems
 echo "Making Partitions..."
-if [${UEFI_enabled}]; then
+if $UEFI_enabled; then
     mkfs.fat -F32 ${boot_part} << mkfat
 y
 mkfat
@@ -185,7 +185,7 @@ y
 mkfs_4
 
 mount ${root_part} /mnt
-if [${UEFI_enabled}]; then
+if $UEFI_enabled; then
     mkdir /mnt/boot
     mount ${boot_part} /mnt/boot
 fi
@@ -245,7 +245,7 @@ echo "Editing sudoer's file..."
 echo "%wheel ALL=(ALL:ALL) ALL" >> /mnt/etc/sudoers
 echo "Defaults rootpw" >> /mnt/etc/sudoers
 
-if [${UEFI_enabled}]; then
+if $UEFI_enabled; then
     # make UEFI boot loader file
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
     echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
@@ -257,11 +257,24 @@ if [${UEFI_enabled}]; then
 fi
 
 # chroot into and configure new install
-cp ${0}/arch_install_chroot.sh /mnt/root/.
-
 arch-chroot /mnt << chroot_commands
-/root/arch_install_chroot.sh ${UEFI_enabled} ${root_password}
+locale-gen
+export LANG=en_US.UTF-8
+hwclock --systohc --utc
+pacman -Sy
+systemctl enable NetworkManager.service
+systemctl enable sshd.service
+passwd
+${root_password}
+${root_password}
 chroot_commands
+
+# install correct boot loader
+if $UEFI_enabled; then
+arch-chroot /mnt << chroot_commands
+bootctl install
+chroot_commands
+fi
 
 echo "Base installation complete!"
 sleep 1
@@ -273,4 +286,3 @@ while [[ ${shutdown_count} > 0 ]]; do
     ((shutdown_count=shutdown_count-1))
 done
 shutdown now
-
