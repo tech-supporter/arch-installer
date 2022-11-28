@@ -264,24 +264,20 @@ echo "%wheel ALL=(ALL:ALL) ALL" >> /mnt/etc/sudoers
 echo "Defaults rootpw" >> /mnt/etc/sudoers
 
 # chroot into and configure new install
-arch-chroot /mnt << chroot_commands
-locale-gen
-export LANG=en_US.UTF-8
-ln -s /usr/share/zoneinfo/America/Chicago /etc/localtime
-hwclock --systohc --utc
-pacman -Sy
-systemctl enable NetworkManager.service
-systemctl enable sshd.service
-passwd
+arch-chroot /mnt 'locale-gen'
+arch-chroot /mnt 'ln' '-s' '/usr/share/zoneinfo/America/Chicago' '/etc/localtime'
+arch-chroot /mnt 'hwclock' '--systohc' '--utc'
+arch-chroot /mnt 'pacman' '-Sy'
+arch-chroot /mnt 'systemctl' 'enable' 'NetworkManager.service'
+arch-chroot /mnt 'systemctl' 'enable' 'sshd.service'
+arch-chroot /mnt 'passwd' << chroot_commands
 ${root_password}
 ${root_password}
 chroot_commands
 
 # install/configure correct boot loader
 if $UEFI_enabled; then
-    arch-chroot /mnt << chroot_commands
-bootctl install
-chroot_commands
+    arch-chroot /mnt 'bootctl' 'install'
     # make UEFI boot loader file
     mkdir -p /mnt/boot/loader/entries
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
