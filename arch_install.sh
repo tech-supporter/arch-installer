@@ -306,12 +306,10 @@ echo "Base installation complete!"
 shutdown_count=30
 echo "Shutting down in ${shutdown_count} seconds: Remove USB boot drive before starting computer back up"
 echo "Press the Enter Key to shutdown now."
-input=false
 while [[ ${shutdown_count} > 0 ]]; do
     echo ${shutdown_count}
-    read -t 1 input
-    # not sure how this works but checks if they entered something vs timing out
-    if [[ $? -gt 128 ]]; then
+    read -t 1 -n 1 input
+    if [[ $? == 0 ]]; then
         ((shutdown_count=0))
     fi
     ((shutdown_count=shutdown_count-1))
