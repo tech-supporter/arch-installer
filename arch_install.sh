@@ -226,7 +226,7 @@ lsblk
 
 # install base linux
 echo "Installing base linux..."
-pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${architecture}-ucode openssh << base_install_commands
+pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${architecture}-ucode openssh git << base_install_commands
 
 
 
