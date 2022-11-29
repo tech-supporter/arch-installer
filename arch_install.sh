@@ -100,8 +100,17 @@ echo "Root Partition size is: ${root_size}GiB"
 # choose primary drive
 confirm='n'
 while ! [ ${confirm} = 'y' ]; do
+    clear
     lsblk
-    read -p "Choose primary drive to use. Note drive will be cleared: " primary_drive
+    fdisk_output='error'
+    while ! [ -z ${fdisk_output} ]; do
+        read -p "Choose primary drive to use. Note drive will be cleared: " primary_drive
+        fdisk_output=$(fdisk -l ${primary_drive} 2> echo)
+        if ! [[ -z fdisk_output ]]; then
+            echo "Cannot find drive: ${primary_drive}"
+        fi
+    done
+
     read -p "Please confirm this is the correct drive: ${primary_drive} (y/N): " confirm
 done
 
