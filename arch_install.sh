@@ -102,11 +102,11 @@ confirm='n'
 while ! [ ${confirm} = 'y' ]; do
     clear
     lsblk
-    fdisk_output='error'
-    while ! [ -z ${fdisk_output} ]; do
+    fdisk_output=''
+    while [[ -z ${fdisk_output} ]]; do
         read -p "Choose primary drive to use. Note drive will be cleared: " primary_drive
-        fdisk_output=$(fdisk -l ${primary_drive} 2> echo)
-        if ! [[ -z fdisk_output ]]; then
+        fdisk_output=$(fdisk -l "/dev/${primary_drive}" 2> grep 'cannot open')
+        if [[ -z ${fdisk_output} ]]; then
             echo "Cannot find drive: ${primary_drive}"
         fi
     done
