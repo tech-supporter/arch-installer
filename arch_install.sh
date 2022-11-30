@@ -114,6 +114,13 @@ while ! [ ${confirm} = 'y' ]; do
     read -p "Please confirm this is the correct drive: ${primary_drive} (y/N): " confirm
 done
 
+# unmount existing partitions and turn off swap spaces
+swapoff -a
+umount -R -f /mnt
+
+# remove file systems on the drive
+wipefs -a ${primary_drive}
+
 # clear primary drive partitions
 echo "Clearing out primary drive: ${primary_drive}.."
 gdisk "/dev/${primary_drive}" << clear_commands
