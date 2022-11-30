@@ -92,7 +92,7 @@ while [[ ${GPU_architecture} != i* ]] && [[ ${GPU_architecture} != N* ]] && [[ $
     if [[ ${typed,,} == i* ]]; then
         GPU_architecture="integrated"
     elif [[ ${typed,,} == n* ]]; then
-        GPU_architecture="Nvidia"
+        GPU_architecture="nvidia"
     elif [[ ${typed,,} == a* ]]; then
         GPU_architecture="amd"
     else
@@ -196,7 +196,7 @@ wipefs -a ${primary_drive}
 # clear primary drive partitions
 echo "Clearing out primary drive: ${primary_drive}.."
 gdisk "/dev/${primary_drive}" << clear_commands
-
+$(echo)
 x
 z
 y
@@ -211,23 +211,23 @@ o
 y
 n
 1
-
+$(echo)
 +1GiB
 EF00
 n
 2
-
+$(echo)
 +${swap_size}GiB
 8200
 n
 3
-
+$(echo)
 +${root_size}GiB
 8300
 n
 4
-
-
+$(echo)
+$(echo)
 8300
 w
 y
@@ -243,26 +243,26 @@ y
 n
 p
 1
-
+$(echo)
 +1GiB
 y
 n
 p
 2
-
+$(echo)
 +${swap_size}GiB
 y
 n
 p
 3
-
+$(echo)
 +${root_size}GiB
 y
 n
 p
 4
-
-
+$(echo)
+$(echo)
 t
 2
 82
@@ -310,10 +310,10 @@ lsblk
 # install base linux
 echo "Installing base linux..."
 pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${architecture}-ucode openssh git << base_install_commands
-
-
-
-
+$(echo)
+$(echo)
+$(echo)
+$(echo)
 y
 y
 base_install_commands
