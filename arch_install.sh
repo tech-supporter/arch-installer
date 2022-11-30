@@ -196,7 +196,7 @@ wipefs -a ${primary_drive}
 # clear primary drive partitions
 echo "Clearing out primary drive: ${primary_drive}.."
 gdisk "/dev/${primary_drive}" << clear_commands
-\n
+$(echo)
 x
 z
 y
@@ -211,23 +211,23 @@ o
 y
 n
 1
-\n
+$(echo)
 +1GiB
 EF00
 n
 2
-\n
+$(echo)
 +${swap_size}GiB
 8200
 n
 3
-\n
+$(echo)
 +${root_size}GiB
 8300
 n
 4
-\n
-\n
+$(echo)
+$(echo)
 8300
 w
 y
@@ -243,26 +243,26 @@ y
 n
 p
 1
-\n
+$(echo)
 +1GiB
 y
 n
 p
 2
-\n
+$(echo)
 +${swap_size}GiB
 y
 n
 p
 3
-\n
+$(echo)
 +${root_size}GiB
 y
 n
 p
 4
-\n
-\n
+$(echo)
+$(echo)
 t
 2
 82
@@ -310,12 +310,11 @@ lsblk
 # install base linux
 echo "Installing base linux..."
 pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${architecture}-ucode openssh git << base_install_commands
-\n
-\n
-\n
-\n
-y
-y
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(yes)
 base_install_commands
 
 # generate fstab file
