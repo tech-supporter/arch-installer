@@ -314,7 +314,8 @@ $(echo)
 $(echo)
 $(echo)
 $(echo)
-$(yes)
+y
+y
 base_install_commands
 
 # generate fstab file
