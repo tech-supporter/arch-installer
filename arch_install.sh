@@ -1,10 +1,21 @@
 #!/usr/bin/bash
 
-# startup
+# startup Arch-Linux Install Assist
 clear
-echo "Installing arch linux..."
-pacman -Sy
+echo "--------------------------------------------------------------------------------"
+echo "|         ##                     #              #                              |"
+echo "|        ####                    #              #                              |"
+echo "|       ##  ##                   #              #     #                        |"
+echo "|      ##    ##     # ###  ##### # ###          #       # ###   #     # #   #  |"
+echo "|     ##########    ##    ##     ##   #  ###### #     # ##   #  #     #  # #   |"
+echo "|    ##        ##   #     #      #     #        #     # #     # #     #   #    |"
+echo "|   ##          ##  #     ##     #     #        #     # #     #  #   ##  # #   |"
+echo "|  ##            ## #      ##### #     #        ##### # #     #   ### # #   #  |"
+echo "--------------------------------------------------------------------------------"
+echo "                                                              -Install Assistant"
+echo ""
 
+# User inputs
 # check if we're in UEFI mode
 UEFI_Vars=$(efivar -l 2>&1)
 if ! [[ ${UEFI_Vars:0:13} = "efivar: error" ]]; then
@@ -20,13 +31,53 @@ else
     fi
 fi
 
+# checking for internet connection
+ping_site="gnu.org"
+error_string="Temporary failure in name resolution"
+invalid_name="Invalid network name"
+incorrect_password="Operation failed"
+while true; do
+    ping_response=$(ping ${ping_site} -c 1 2>&1)
+    error_start_string="Ping: "${ping_site}": "
+    if [[ ${ping_response:${#error_start_string}:${#error_string}} = ${error_string} ]]; then
+        echo "No internet connection found."
+        read -p "Would you like to configure Wifi? (Y/n): " confirm
+        if [ -z ${confirm} ] || [ ${confirm} = 'y' ]; then
+            default_wifi_adaptor=$(iw dev | awk '$1=="Interface"{print $2}')
+            echo "Wi-Fi device: "${default_wifi_adaptor}
+
+            wifi_adaptor=${default_wifi_adaptor}
+            iwctl station ${wifi_adaptor} scan
+            iwctl station ${wifi_adaptor} get-networks
+
+            read -p "Choose network to connect to: " wifi_network
+            read -s -p "Network password: " wifi_password
+            echo ""
+            echo "Connecting to network..."
+
+            wifi_connect_response=$(iwctl --passphrase ${wifi_password} station ${wifi_adaptor} connect ${wifi_network} 2>&1)
+            sleep 2
+            if [[ ${wifi_connect_response:0:${#invalid_name}} = ${invalid_name} ]]; then
+                echo "Invalid network name."
+            elif [[ ${wifi_connect_response:0:${#incorrect_password}} = ${incorrect_password} ]]; then
+                echo "Invalid network password."
+            fi
+        else
+            read -p "Then please plug in an ethernet cord and try again. (press enter to try again)" confirm
+        fi
+    else
+        echo "Internet connection found."
+        break
+    fi
+done
+
 # choose cpu architecture/band
 architecture=''
 while [[ ${architecture} != i* ]] && [[ ${architecture} != a* ]]; do
     read -p "Choose CPU architecture/brand, (intel/amd): " typed
-    if [[ ${typed} == i* ]]; then
+    if [[ ${typed,,} == i* ]]; then
         architecture="intel"
-    elif [[ ${typed} == a* ]]; then
+    elif [[ ${typed,,} == a* ]]; then
         architecture="amd"
     else
         echo "Invalid CPU architecture/brand: ${typed}"
@@ -34,11 +85,27 @@ while [[ ${architecture} != i* ]] && [[ ${architecture} != a* ]]; do
 done
 echo "Using ${architecture} CPU architecture/brand"
 
+# choose GPU architecture/band
+GPU_architecture=''
+while [[ ${GPU_architecture} != i* ]] && [[ ${GPU_architecture} != N* ]] && [[ ${GPU_architecture} != a* ]]; do
+    read -p "Choose GPU architecture/brand, (Nvidia/amd/integrated with CPU): " typed
+    if [[ ${typed,,} == i* ]]; then
+        GPU_architecture="integrated"
+    elif [[ ${typed,,} == n* ]]; then
+        GPU_architecture="Nvidia"
+    elif [[ ${typed,,} == a* ]]; then
+        GPU_architecture="amd"
+    else
+        echo "Invalid GPU architecture/brand: ${typed}"
+    fi
+done
+echo "Using ${GPU_architecture} GPU architecture/brand"
+
 # choose computer name
 pretty_computer_name=''
-while [ -z ${pretty_computer_name} ]; do
+while [ -z "${pretty_computer_name}" ]; do
     read -p "Choose computer name: " pretty_computer_name
-    if [[ -z ${pretty_computer_name} ]]; then
+    if [[ -z "${pretty_computer_name}" ]]; then
         echo "Invalid computer name."
     fi
 done
@@ -113,6 +180,11 @@ while ! [ ${confirm} = 'y' ]; do
 
     read -p "Please confirm this is the correct drive: ${primary_drive} (y/N): " confirm
 done
+# User inputs done
+
+# updating install image
+echo "Updating arch-linux install image..."
+pacman -Sy
 
 # unmount existing partitions and turn off swap spaces
 swapoff -a
@@ -132,6 +204,7 @@ y
 clear_commands
 
 # create new partitions
+# In UEFI Mode
 if $UEFI_enabled; then
 gdisk /dev/$primary_drive << partition_commands
 o
@@ -161,6 +234,9 @@ y
 q
 partition_commands
 else
+# In Bios Mode
+# o=made bios signature which is also auto made is none found when opening this program, y to accept
+# n=new, p=partition, number=partition identifier (1-4), empty line to accept default start sector, +#Gib=size or empty to accept default size, y=confirms remove existing signature if pressent or if not no ill effects happen
 fdisk /dev/$primary_drive << partition_commands
 o
 y
