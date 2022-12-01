@@ -115,7 +115,18 @@ echo "Computer name: "${pretty_computer_name}
 echo "Internal host name: "${computer_name}
 
 # choose root password
-read -s -p "Choose root password: " root_password
+root_password=''
+confirm_root_password=''
+while [ -z "{$root_password}" ] || [ ${root_password} = ${confirm_root_password} ]; do
+    read -s -p "Choose root password: " root_password
+    read -s -p "Confirm root password: " confirm_root_password
+    if [ -z "{$root_password}" ]; then
+        echo "Root password cannot be empty."
+    elif ! [ ${root_password} = ${confirm_root_password} ]
+        echo "Root passwords do not match."
+    fi
+done
+echo "Root password accepted: "
 printf "%${#root_password}s\n" | tr ' ' '*'
 
 # pick swap size
