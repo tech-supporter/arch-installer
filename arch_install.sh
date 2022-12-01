@@ -124,7 +124,7 @@ while [[ -z ${root_password} ]] || [[ -z ${confirm_root_password} ]] || [[ ${roo
     read -s -p "Confirm root password: " confirm_root_password
     if [[ -z ${root_password} ]] || [[ -z ${confirm_root_password} ]]; then
         echo "Root password cannot be empty!"
-    elif ! [[ ${root_password} = ${confirm_root_password} ]]
+    elif ! [[ ${root_password} = ${confirm_root_password} ]]; then
         echo "Root passwords do not match!"
     fi
 done
