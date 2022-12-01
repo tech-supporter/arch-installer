@@ -71,41 +71,41 @@ while true; do
     fi
 done
 
-# choose cpu architecture/band
-CPU_architecture=''
-while [[ ${CPU_architecture} != i* ]] && [[ ${CPU_architecture} != a* ]]; do
-    read -p "Choose CPU architecture/brand, (intel/amd): " typed
+# choose cpu micro-code
+micro_code=''
+while [[ ${micro_code} != i* ]] && [[ ${micro_code} != a* ]]; do
+    read -p "Choose CPU micro-code, (intel/amd): " typed
     if [[ ${typed,,} == i* ]]; then
-        CPU_architecture="intel"
+        micro_code="intel"
     elif [[ ${typed,,} == a* ]]; then
-        CPU_architecture="amd"
+        micro_code="amd"
     else
-        echo "Invalid CPU architecture/brand: ${typed}"
+        echo "Invalid CPU micro-code: ${typed}"
     fi
 done
-echo "Using ${CPU_architecture} CPU architecture/brand"
+echo "Using ${micro_code} CPU micro-code"
 
-# choose GPU architecture/band
-GPU_architecture=''
-while ; do
-    read -p "Choose GPU architecture/brand, (Nvidia/amd/integrated with CPU): " typed
+# choose GPU driver
+GPU_driver=''
+while true; do
+    read -p "Choose GPU driver, (nvidia/nouveau/amd/integrated with CPU): " typed
     if [[ ${typed,,} == i* ]]; then
-        GPU_architecture="integrated"
+        GPU_driver="integrated"
         break 1
-    elif [[ ${typed,,} == ni* ]]; then
-        GPU_architecture="nvidia"
+    elif [[ ${typed,,} == nv* ]]; then
+        GPU_driver="nvidia"
         break 1
     elif [[ ${typed,,} == no* ]]; then
-        GPU_architecture="nouveau"
+        GPU_driver="nouveau"
         break 1
     elif [[ ${typed,,} == a* ]]; then
-        GPU_architecture="amd"
+        GPU_driver="amd"
         break 1
     else
-        echo "Invalid GPU architecture/brand: ${typed}"
+        echo "Invalid GPU driver: ${typed}"
     fi
 done
-echo "Using ${GPU_architecture} GPU architecture/brand"
+echo "Using ${GPU_driver} GPU driver"
 
 # choose computer name
 pretty_computer_name=''
@@ -329,7 +329,7 @@ lsblk
 
 # install base linux
 echo "Installing base linux..."
-pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${CPU_architecture}-ucode openssh git << base_install_commands
+pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${micro_code}-ucode openssh git << base_install_commands
 $(echo)
 $(echo)
 $(echo)
@@ -398,7 +398,7 @@ if $UEFI_enabled; then
     mkdir -p /mnt/boot/loader/entries
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
     echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
-    echo "initrd /${CPU_architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
+    echo "initrd /${micro_code}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
 else
@@ -413,8 +413,8 @@ syslinux_install_commands
 
     # configure boot loader entry
     sed -i "s.root=${root_part}.root=PARTUUID=${root_part_uuid}." /mnt/boot/syslinux/syslinux.cfg
-    sed -i "55 i \ \ \ \ INITRD ../${CPU_architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
-    sed -i "62 i \ \ \ \ INITRD ../${CPU_architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
+    sed -i "55 i \ \ \ \ INITRD ../${micro_code}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
+    sed -i "62 i \ \ \ \ INITRD ../${micro_code}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
 fi
 
 echo "Base installation complete!"
