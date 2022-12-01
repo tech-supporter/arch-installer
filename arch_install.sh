@@ -72,29 +72,35 @@ while true; do
 done
 
 # choose cpu architecture/band
-architecture=''
-while [[ ${architecture} != i* ]] && [[ ${architecture} != a* ]]; do
+CPU_architecture=''
+while [[ ${CPU_architecture} != i* ]] && [[ ${CPU_architecture} != a* ]]; do
     read -p "Choose CPU architecture/brand, (intel/amd): " typed
     if [[ ${typed,,} == i* ]]; then
-        architecture="intel"
+        CPU_architecture="intel"
     elif [[ ${typed,,} == a* ]]; then
-        architecture="amd"
+        CPU_architecture="amd"
     else
         echo "Invalid CPU architecture/brand: ${typed}"
     fi
 done
-echo "Using ${architecture} CPU architecture/brand"
+echo "Using ${CPU_architecture} CPU architecture/brand"
 
 # choose GPU architecture/band
 GPU_architecture=''
-while [[ ${GPU_architecture} != i* ]] && [[ ${GPU_architecture} != N* ]] && [[ ${GPU_architecture} != a* ]]; do
+while ; do
     read -p "Choose GPU architecture/brand, (Nvidia/amd/integrated with CPU): " typed
     if [[ ${typed,,} == i* ]]; then
         GPU_architecture="integrated"
-    elif [[ ${typed,,} == n* ]]; then
+        break 1
+    elif [[ ${typed,,} == ni* ]]; then
         GPU_architecture="nvidia"
+        break 1
+    elif [[ ${typed,,} == no* ]]; then
+        GPU_architecture="nouveau"
+        break 1
     elif [[ ${typed,,} == a* ]]; then
         GPU_architecture="amd"
+        break 1
     else
         echo "Invalid GPU architecture/brand: ${typed}"
     fi
@@ -323,7 +329,7 @@ lsblk
 
 # install base linux
 echo "Installing base linux..."
-pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${architecture}-ucode openssh git << base_install_commands
+pacstrap -i /mnt base base-devel linux linux-headers linux-firmware vim bash-completion networkmanager ${CPU_architecture}-ucode openssh git << base_install_commands
 $(echo)
 $(echo)
 $(echo)
@@ -392,12 +398,12 @@ if $UEFI_enabled; then
     mkdir -p /mnt/boot/loader/entries
     echo "title ${computer_name}" > /mnt/boot/loader/entries/arch.conf
     echo "linux /vmlinuz-linux" >> /mnt/boot/loader/entries/arch.conf
-    echo "initrd /${architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
+    echo "initrd /${CPU_architecture}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
     echo "initrd /initramfs-linux.img" >> /mnt/boot/loader/entries/arch.conf
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_part}) rw" >> /mnt/boot/loader/entries/arch.conf
 else
 pacstrap -i /mnt syslinux << syslinux_install_commands
-
+$(echo)
 y
 syslinux_install_commands
     # install syslinux MBR
@@ -407,8 +413,8 @@ syslinux_install_commands
 
     # configure boot loader entry
     sed -i "s.root=${root_part}.root=PARTUUID=${root_part_uuid}." /mnt/boot/syslinux/syslinux.cfg
-    sed -i "55 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
-    sed -i "62 i \ \ \ \ INITRD ../${architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
+    sed -i "55 i \ \ \ \ INITRD ../${CPU_architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
+    sed -i "62 i \ \ \ \ INITRD ../${CPU_architecture}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
 fi
 
 echo "Base installation complete!"
