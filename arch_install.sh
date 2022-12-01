@@ -324,7 +324,8 @@ genfstab -U -p /mnt >> /mnt/etc/fstab
 
 # set locale
 echo "Setting locale..."
-echo "en_US.UTF-8 UTF-8" > /mnt/etc/locale.gen
+#echo "en_US.UTF-8 UTF-8" > /mnt/etc/locale.gen
+sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /mnt/etc/locale.gen
 echo "LANG=en_US.UTF-8" > /mnt/etc/locale.conf
 
 # setup hostname
@@ -347,12 +348,15 @@ echo "Location=\"Server Room\"" >> /mnt/etc/machine-info
 
 # enable multilib
 echo "Enabling multilib..."
-echo "[multilib]" >> /mnt/etc/pacman.conf
-echo "Include = /etc/pacman.d/mirrorlist" >> /mnt/etc/pacman.conf
+multilib_line=$(grep -n '#\[multilib\]' /mnt/etc/pacman.conf | cut -d ':' -f1)
+include_line=$((multilib_line + 1))
+sed -i "${multilib_line}c\[multilib\]" /mnt/etc/pacman.conf
+sed -i "${include_line}cInclude = /etc/pacman.d/mirrorlist" /mnt/etc/pacman.conf
 
 # edit sudors files
 echo "Editing sudoer's file..."
-echo "%wheel ALL=(ALL:ALL) ALL" >> /mnt/etc/sudoers
+#echo "%wheel ALL=(ALL:ALL) ALL" >> /mnt/etc/sudoers
+sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
 echo "Defaults rootpw" >> /mnt/etc/sudoers
 
 # chroot into and configure new install
