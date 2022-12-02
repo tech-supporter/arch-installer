@@ -6,7 +6,7 @@ install_driver_nvidia()
     local is_uefi=$1
     local is_intel=$2
 
-    # install base linux
+    # install nvidia packages
     echo "Installing nVidia driver packages..."
 pacstrap -i /mnt nvidia-dkms nvidia-utils opencl-nvidia libglvnd lib32-libglvnd lib32-nvidia-utils lib32-opencl-nvidia nvidia-settings << install_commands
 $(echo)
