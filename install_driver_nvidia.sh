@@ -38,17 +38,17 @@ Exec=/usr/bin/mkinitcpio -P
     sed -i 's/MODULES=(/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm/g' "/mnt/etc/mkinitcpio.conf"
 
     echo "Updating boot loader..."
-    local boot_text="nvidia-drm.modeset=1"
-    local boot_path="/mnt/boot/syslinux/syslinux.cfg"
 
     # disable Indirect Branch Tracking when using intel based CPUs
     # on linux kernal 5.18 and higher, it might be required, at least until the issue is solved
     # https://wiki.archlinux.org/title/NVIDIA#Installation
+    local boot_text="nvidia-drm.modeset=1"
     if $is_intel; then
         boot_text="${boot_text} ibt=off"
     fi
 
     # update the correct boot loader based on uefi status
+    local boot_path="/mnt/boot/syslinux/syslinux.cfg"
     if $is_uefi; then
         boot_path="/mnt/boot/loader/entries/arch.conf"
     fi
