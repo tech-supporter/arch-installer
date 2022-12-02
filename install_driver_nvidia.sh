@@ -16,8 +16,9 @@ y
 install_commands
 
     # create the dynamic kernal module support hook
+    local hooks_path="/mnt/etc/pacman.d/hooks/"
     echo "Creating DKMS hook..."
-    mkdir -p "/etc/pacman.d/hooks"
+    mkdir -p ${hooks_path}
     echo '
 [Trigger]
 Operation=Install
@@ -30,7 +31,7 @@ Target=nvidia
 Depends=mkinitcpio
 When=PostTransaction
 Exec=/usr/bin/mkinitcpio -P
-' > "/etc/pacman.d/hooks/nvidia"
+' > "${hooks_path}nvidia"
 
     # update kernal modules
     echo "Updating kernal modules list..."
@@ -53,7 +54,7 @@ Exec=/usr/bin/mkinitcpio -P
     fi
 
     # update the configuration of the boot loader
-    sed -i "s/rw/rw ${boot_text}/g" ${boot_path}
+    sed -i "s/rw/rw ${boot_text}/" ${boot_path}
 
     echo "Finished installing nVidia drivers."
 }
