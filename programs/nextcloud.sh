@@ -167,12 +167,12 @@ y
 EOF
 
     # add nextcloud user to database
-    mysql -u root -p << EOF
-${root_password}
+    mysql -u root << EOF
 CREATE USER 'nextcloud'@'localhost' IDENTIFIED BY '${nextcloud_password}';
 CREATE DATABASE IF NOT EXISTS nextcloud CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 GRANT ALL PRIVILEGES on nextcloud.* to 'nextcloud'@'localhost';
 FLUSH privileges;
+exit
 EOF
 }
 
