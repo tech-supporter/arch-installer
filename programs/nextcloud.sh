@@ -114,6 +114,26 @@ function read_folder()
     echo ${value}
 }
 
+function read_password()
+{
+    local prompt=${1}
+    local default_value=${2}
+    local typed=''
+    local value=''
+    if ! [[ -z ${default_value} ]]; then
+        prompt="${prompt}: (default: ${default_value})"
+    fi
+    while ! [[ -d ${value} ]]; do
+        read -p "${prompt}" typed
+        if [[ -z ${typed} ]] && ! [[ -z ${default_value} ]]; then
+            value=${default_value}
+        elif [[ -d ${typed} ]]; then
+            value=${typed}
+        fi
+    done
+    echo ${value}
+}
+
 # installation functions
 function install_mariadb()
 {
@@ -139,6 +159,7 @@ $(echo)
 y
 y
 ${root_password}
+${root_password}
 y
 y
 y
@@ -158,14 +179,10 @@ EOF
 mysql_data_folder=$(read_folder "${mysql_data_folder_prompt}" "${mysql_data_folder}")
 echo $mysql_data_folder
 
-max_execution_time=$(read_whole_number "${max_execution_time_prompt}" "${max_execution_time}")
-echo $max_execution_time
+root_database_password=$(read_whole_number "${root_database_password_prompt}")
+echo $root_database_password
 
-max_execution_time=$(read_whole_number "${max_execution_time_prompt}")
-echo $max_execution_time
+nextcloud_database_password=$(read_whole_number "${nextcloud_database_password_prompt}")
+echo $nextcloud_database_password
 
-upload_max_filesize=$(read_storage_size "${upload_max_filesize_prompt}" "${upload_max_filesize}")
-echo $upload_max_filesize
-
-post_max_size=$(read_storage_size "${post_max_size_prompt}" "${post_max_size}")
-echo $post_max_size
+install_mariadb "${mysql_data_folder}" "${root_database_password}" "${nextcloud_data_folder}"
