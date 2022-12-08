@@ -135,17 +135,25 @@ function read_password()
 }
 
 # installation functions
-function install_mariadb()
+function install_packages()
+{
+    pacman -S nextcloud mariadb php-fpm php-intl php-imagick php-gd << EOF
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+EOF
+}
+
+function configure_mariadb()
 {
     # set local parameters
     local data_folder=${1}
     local root_password=${2}
     local nextcloud_password=${3}
-
-    # install db package
-    pacman -S mariadb << install_commands
-y
-install_commands
 
     # init mariadb
     mariadb-install-db --user=mysql --basedir=/usr --datadir=${data_folder}
@@ -176,6 +184,137 @@ exit
 EOF
 }
 
+function configure_ini()
+{
+    # define local parameters
+    local ini_file=${1}
+    local memory_limit=${2}
+    local timezone=${3}
+
+    local upload_max_filesize=${4}
+    local post_max_size=${5}
+
+    local max_input_time=${6}
+    local max_execution_time=${7}
+
+    sed -i "s/memory_limit =.*/memory_limit = ${memory_limit}/" ${ini_file}
+    sed -i "s,;date.timezone =,date.timezone = ${timezone}," ${ini_file}
+
+    sed -i "s/upload_max_filesize =.*/upload_max_filesize = ${upload_max_filesize}/" ${ini_file}
+    sed -i "s/post_max_size =.*/post_max_size = ${post_max_size}/" ${ini_file}
+
+    sed -i "s/max_input_time =.*/max_input_time = ${max_input_time}/" ${ini_file}
+    sed -i "s/max_execution_time =.*/max_execution_time = ${max_execution_time}/" ${ini_file}
+}
+
+function configure_php()
+{
+    # define local parameters
+    local nextcloud_data_folder=${1}
+
+    local memory_limit=${2}
+    local timezone=${3}
+
+    local upload_max_filesize=${4}
+    local post_max_size=${5}
+
+    local max_input_time=${6}
+    local max_execution_time=${7}
+
+    # define the php.ini file paths
+    local php_ini="/etc/php/php.ini"
+    local nextcloud_ini="/etc/webapps/nextcloud/php.ini"
+    local fpm_ini="/etc/php/php-fpm.ini"
+
+    # create php ini files for nextcloud and php-fpm
+    cp ${php_ini} ${nextcloud_ini}
+    chown "nextcloud:nextcloud" ${nextcloud_ini}
+    cp ${php_ini} ${fpm_ini}
+    chown "root:root" ${fpm_ini}
+
+    # configure basic settings
+    configure_ini "${nextcloud_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
+    configure_ini "${fpm_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
+
+    # configure php-fpm.ini only
+    sed -i "s/;zend_extension=*/zend_extension=opcache/" ${fpm_ini}
+    sed -i "s/;opcache.enable=.*/;opcache.enable = 1/" ${fpm_ini}
+    sed -i "s/;opcache.interned_strings_buffer=.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
+    sed -i "s/;opcache.max_accelerated_files=.*/;opcache.max_accelerated_files = 10000/" ${fpm_ini}
+    sed -i "s/;opcache.memory_consumption=.*/;opcache.memory_consumption = 128/" ${fpm_ini}
+    sed -i "s/;opcache.save_comments=.*/opcache.save_comments = 1/" ${fpm_ini}
+    sed -i "s/;opcache.revalidate_freq=.*/opcache.revalidate_freq = 1/" ${fpm_ini}
+
+    # configure service
+    local service_file="/etc/systemd/system/php-fpm.service.d/override.conf"
+    echo "
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/php-fpm --nodaemonize --fpm-config /etc/php/php-fpm.conf --php-ini /etc/php/php-fpm.ini
+    ReadWritePaths=${nextcloud_data_folder}
+    ReadWritePaths=/etc/webapps/nextcloud/config
+    " > "${service_file}"
+
+    # define config files
+    local conf_folder="/etc/php/php-fpm.d/"
+    local www_conf_file="${conf_folder}www.conf"
+    local nextcloud_conf_file="${conf_folder}nextcloud.conf"
+    local backup_conf_file="${conf_folder}www.conf.backup"
+
+    cp ${www_conf_file} ${nextcloud_conf_file}
+    cp ${www_conf_file} ${backup_conf_file}
+
+    # clear existing www.conf
+    echo ";" > ${www_conf_file}
+
+    # add configuration to pool settings, should match the settings in /etc/webapps/nextcloud/php.ini but does not need to match /etc/php/php-fpm.ini
+    sed -i "s/user = http/user = nextcloud/" ${nextcloud_conf_file}
+    sed -i "s/group = http/group = nextcloud/" ${nextcloud_conf_file}
+
+    echo "
+php_value[extension] = bcmath
+php_value[extension] = bz2
+php_value[extension] = exif
+php_value[extension] = gd
+php_value[extension] = gmp
+php_value[extension] = intl
+php_value[extension] = iconv
+php_value[extension] = pdo_mysql
+php_value[extension] = mysqli
+php_value[extension] = imagick
+" >> ${nextcloud_conf_file}
+
+    # configure fpm ini file
+    sed -i "s/;extension=bcmath/extension=bcmath/" ${fpm_ini}
+    sed -i "s/;extension=bz2/extension=bz2/" ${fpm_ini}
+    sed -i "s/;extension=exif/extension=exif/" ${fpm_ini}
+    sed -i "s/;extension=gd/extension=gd/" ${fpm_ini}
+    sed -i "s/;extension=gmp/extension=gmp/" ${fpm_ini}
+    sed -i "s/;extension=intl/extension=intl/" ${fpm_ini}
+    sed -i "s/;extension=iconv/extension=iconv/" ${fpm_ini}
+    sed -i "s/;extension=pdo_mysql/extension=pdo_mysql/" ${fpm_ini}
+    sed -i "s/;extension=mysqli/extension=mysqli/" ${fpm_ini}
+    echo "extension=imagick" >> ${fpm_ini}
+
+    # set up pacman hook to update the database
+    mkdir -vp "/etc/pacman.d/hooks"
+    cp -a "/usr/share/doc/nextcloud/nextcloud.hook" "/etc/pacman.d/hooks/nextcloud.hook"
+
+    sed -i "s,Exec =.*,Exec = /usr/bin/runuser -u nextcloud -- /usr/bin/php --php-ini /etc/webapps/nextcloud/php.ini /usr/share/webapps/nextcloud/occ upgrade,"
+
+    # set owner and group
+    chown "nextcloud:nextcloud" "/etc/webapps/nextcloud" -R
+    chown "nextcloud:nextcloud" "/usr/share/webapps/nextcloud" -R
+    chown "nextcloud:nextcloud" ${nextcloud_data_folder} -R
+    chown "nextcloud:nextcloud" "/var/lib/nextcloud/" -R
+
+    # set permissions
+    chmod "770" "/etc/webapps/nextcloud" -R
+    chmod "770" "/usr/share/webapps/nextcloud" -R
+    chmod "770" ${nextcloud_data_folder} -R
+    chmod "770" "/var/lib/nextcloud/" -R
+}
+
 mysql_data_folder=$(read_folder "${mysql_data_folder_prompt}" "${mysql_data_folder}")
 echo $mysql_data_folder
 
@@ -185,4 +324,8 @@ echo $root_database_password
 nextcloud_database_password=$(read_whole_number "${nextcloud_database_password_prompt}")
 echo $nextcloud_database_password
 
-install_mariadb "${mysql_data_folder}" "${root_database_password}" "${nextcloud_data_folder}"
+install_packages
+
+configure_mariadb "${mysql_data_folder}" "${root_database_password}" "${nextcloud_database_password}"
+
+configure_php "${nextcloud_data_folder}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
