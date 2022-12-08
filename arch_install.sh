@@ -233,6 +233,14 @@ done
 echo "Updating arch-linux install image..."
 pacman -Sy
 
+echo "Enabling multilib on the install media..."
+multilib_line=$(grep -n '#\[multilib\]' /etc/pacman.conf | cut -d ':' -f1)
+include_line=$((multilib_line + 1))
+sed -i "${multilib_line}c\[multilib\]" /etc/pacman.conf
+sed -i "${include_line}cInclude = /etc/pacman.d/mirrorlist" /etc/pacman.conf
+
+pacman -Sy
+
 # unmount existing partitions and turn off swap spaces
 swapoff -a
 umount -R -f /mnt
