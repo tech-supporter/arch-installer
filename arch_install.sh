@@ -1,5 +1,24 @@
 #!/usr/bin/bash
 
+# find the installer script's directory
+# taken from:
+# https://www.baeldung.com/linux/bash-get-location-within-script
+SCRIPT_PATH="${BASH_SOURCE}"
+while [ -L "${SCRIPT_PATH}" ]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "${SCRIPT_PATH}")" >/dev/null 2>&1 && pwd)"
+  SCRIPT_PATH="$(readlink "${SCRIPT_PATH}")"
+  [[ ${SCRIPT_PATH} != /* ]] && SCRIPT_PATH="${SCRIPT_DIR}/${SCRIPT_PATH}"
+done
+SCRIPT_PATH="$(readlink -f "${SCRIPT_PATH}")"
+SCRIPT_DIR="$(cd -P "$(dirname -- "${SCRIPT_PATH}")" >/dev/null 2>&1 && pwd)"
+
+# load all the drive installers from the folder
+# include driver install scripts
+GPU_driver_folder="${SCRIPT_DIR}/gpu_drivers/"
+for driver in ${GPU_driver_folder}*.sh; do
+    source "${driver}"
+done
+
 # startup Arch-Linux Install Assist
 clear
 echo "--------------------------------------------------------------------------------"
@@ -85,8 +104,14 @@ while [[ ${micro_code} != i* ]] && [[ ${micro_code} != a* ]]; do
 done
 echo "Using ${micro_code} CPU micro-code"
 
+function install_driver_integrated()
+{
+    echo "Integrated grahpics, doing nothing..."
+}
+
 # choose GPU driver
 GPU_driver=''
+GPU_driver_prefix='install_driver_'
 while true; do
     read -p "Choose GPU driver, (nvidia/nouveau/amd/integrated with CPU): " typed
     if [[ ${typed,,} == i* ]]; then
@@ -105,7 +130,9 @@ while true; do
         echo "Invalid GPU driver: ${typed}"
     fi
 done
+GPU_driver_installer="${GPU_driver_prefix}${GPU_driver}"
 echo "Using ${GPU_driver} GPU driver"
+echo "Using GPU driver installer: ${GPU_driver_installer}"
 
 # choose computer name
 pretty_computer_name=''
@@ -416,6 +443,10 @@ syslinux_install_commands
     sed -i "55 i \ \ \ \ INITRD ../${micro_code}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
     sed -i "62 i \ \ \ \ INITRD ../${micro_code}-ucode.img" /mnt/boot/syslinux/syslinux.cfg
 fi
+
+# install gpu drivers
+echo "Installing GPU drivers..."
+$GPU_driver_installer
 
 echo "Base installation complete!"
 shutdown_count=30
