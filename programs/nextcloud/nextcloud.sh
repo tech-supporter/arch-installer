@@ -39,8 +39,8 @@ root_database_password_prompt='Enter root user password for the mysql database'
 nextcloud_database_password_prompt='Enter NextCloud user password for the mysql database'
 
 # nextcloud admin account information
-admin_email=''
-admin_password=''
+admin_email='admin@example.com'
+admin_password='admin'
 
 admin_email_prompt='Enter NextCloud admin email'
 admin_password_prompt='Enter NextCLoud admin password'
@@ -332,12 +332,148 @@ function configure_nextcloud()
 
     # add domain to the list of trusted domains
     sed -i "/0 => 'localhost',/a 1 => '${nextcloud_domain}'" "/etc/webapps/nextcloud/config/config.php"
+
+    # update cli url rewrite
+    sed -i "s,http://localhost,${nextcloud_url},"
+}
+
+function configure_nginx()
+{
+    local nginx_config_file="/etc/nginx/nginx.conf"
+    local nextcloud_nginx_config_file="/etc/nginx/conf.d/nextcloud.conf"
+    mkdir "/etc/nginx/conf.d/"
+
+    # add the configuration file for nginx
+    # \ . $ have been escaped where required
+    # Ermanno Ferrari's configuration, can be found here:
+    # https://gitlab.com/eflinux/nextcloudarch
+    cat > ${nextcloud_nginx_config_file} << EOF
+server {
+    listen 80;
+    server_name localhost;
+
+    # Add headers to serve security related headers
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Robots-Tag none;
+    add_header X-Download-Options noopen;
+    add_header X-Permitted-Cross-Domain-Policies none;
+
+    # Path to the root of your installation
+    root /usr/share/webapps/nextcloud/;
+
+    location = /robots.txt {
+        allow all;
+        log_not_found off;
+        access_log off;
+    }
+
+    # The following 2 rules are only needed for the user_webfinger app.
+    # Uncomment it if you're planning to use this app.
+    #rewrite ^/.well-known/host-meta /public.php?service=host-meta last;
+    #rewrite ^/.well-known/host-meta.json /public.php?service=host-meta-json
+    # last;
+
+    location = /.well-known/carddav {
+        return 301 \$scheme://\$host/remote.php/dav;
+    }
+    location = /.well-known/caldav {
+       return 301 \$scheme://\$host/remote.php/dav;
+    }
+
+    location ~ /.well-known/acme-challenge {
+      allow all;
+    }
+
+    # set max upload size
+    client_max_body_size 512M;
+    fastcgi_buffers 64 4K;
+
+    # Disable gzip to avoid the removal of the ETag header
+    gzip off;
+
+    # Uncomment if your server is build with the ngx_pagespeed module
+    # This module is currently not supported.
+    #pagespeed off;
+
+    error_page 403 /core/templates/403.php;
+    error_page 404 /core/templates/404.php;
+
+    location / {
+       rewrite ^ /index.php\$uri;
+    }
+
+    location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)/ {
+       deny all;
+    }
+    location ~ ^/(?:\\.|autotest|occ|issue|indie|db_|console) {
+       deny all;
+     }
+
+    location ~ ^/(?:index|remote|public|cron|core/ajax/update|status|ocs/v[12]|updater/.+|ocs-provider/.+|core/templates/40[34])\.php(?:$|/) {
+       include fastcgi_params;
+       fastcgi_split_path_info ^(.+\\.php)(/.*)$;
+       fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+       fastcgi_param PATH_INFO \$fastcgi_path_info;
+       #Avoid sending the security headers twice
+       fastcgi_param modHeadersAvailable true;
+       fastcgi_param front_controller_active true;
+       fastcgi_pass unix:/run/php-fpm/php-fpm.sock;
+       fastcgi_intercept_errors on;
+       fastcgi_request_buffering off;
+    }
+
+    location ~ ^/(?:updater|ocs-provider)(?:$|/) {
+       try_files \$uri/ =404;
+       index index.php;
+    }
+
+    # Adding the cache control header for js and css files
+    # Make sure it is BELOW the PHP block
+    location ~* \\.(?:css|js)$ {
+        try_files \$uri /index.php\$uri\$is_args\$args;
+        add_header Cache-Control "public, max-age=7200";
+        # Add headers to serve security related headers (It is intended to
+        # have those duplicated to the ones above)
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header X-Robots-Tag none;
+        add_header X-Download-Options noopen;
+        add_header X-Permitted-Cross-Domain-Policies none;
+        # Optional: Don't log access to assets
+        access_log off;
+   }
+
+   location ~* \\.(?:svg|gif|png|html|ttf|woff|ico|jpg|jpeg)$ {
+        try_files \$uri /index.php\$uri\$is_args\$args;
+        # Optional: Don't log access to other assets
+        access_log off;
+   }
+}
+EOF
+    chmod "755" ${nextcloud_nginx_config_file}
+
+    # configure existing nginx conf to include other configs
+    sed -i "/include.*/a include /etc/nginx/conf.d/*.conf;" ${nginx_config_file}
+
+    # configure the fastcgi pass through, builds from the bottom up
+    sed -i "/# pass the PHP.*/a }" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a include fastcgi_params;" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a fastcgi_index index.php;" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a fastcgi_pass unix:/run/php-fpm/php-fpm.sock;" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a root /usr/share/nginx/html;" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a location ~ \.php\$ {" ${nginx_config_file}
 }
 
 install_packages
 
+clear
 mysql_data_folder=$(read_folder "${mysql_data_folder_prompt}" "${mysql_data_folder}")
 echo $mysql_data_folder
+
+nextcloud_data_folder=$(read_folder "${nextcloud_data_folder_prompt}" "${nextcloud_data_folder}")
+echo $nextcloud_data_folder
 
 root_database_password=$(read_password "${root_database_password_prompt}")
 echo $root_database_password
@@ -345,8 +481,26 @@ echo $root_database_password
 nextcloud_database_password=$(read_password "${nextcloud_database_password_prompt}")
 echo $nextcloud_database_password
 
+admin_email=$(read_password "${admin_email_prompt}" "${admin_email}")
+echo $admin_email
+
+admin_password=$(read_password "${admin_password_prompt}")
+echo $admin_password
+
+nextcloud_url=$(read_password "${nextcloud_url_prompt}" "${nextcloud_url}")
+echo $nextcloud_url
+
+nextcloud_domain=$(read_password "${nextcloud_domain_prompt}" "${nextcloud_domain}")
+echo $nextcloud_domain
+
 configure_mariadb
 
 configure_php
 
 configure_nextcloud
+
+configure_nginx
+
+clear
+echo "Basic NextCLoud Installation is now complete."
+echo "Setup a dns rewrite from your dns server to point ${nextcloud_domain} to this server's ip address"
