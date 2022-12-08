@@ -153,11 +153,6 @@ EOF
 
 function configure_mariadb()
 {
-    # set local parameters
-    local data_folder=${1}
-    local root_password=${2}
-    local nextcloud_password=${3}
-
     # init mariadb
     mariadb-install-db --user=mysql --basedir=/usr --datadir=${data_folder}
 
