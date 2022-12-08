@@ -3,8 +3,9 @@
 # define variables
 
 # data folders
-mysql_data_folder='/var/lib/mysql'
-nextcloud_data_folder='/var/lib/nextcloud'
+mysql_data_folder='/var/lib/mysql/'
+nextcloud_data_folder='/var/lib/nextcloud/data/'
+nextcloud_folder='/var/lib/nextcloud/'
 
 mysql_data_folder_prompt='Enter folder path where MySQL data should be stored'
 nextcloud_data_folder_prompt='Enter folder path where NextCloud data should be stored'
@@ -45,8 +46,8 @@ admin_email_prompt='Enter NextCloud admin email'
 admin_password_prompt='Enter NextCLoud admin password'
 
 # nextcloud config
-nextcloud_dmoain=''
-nextcloud_url=''
+nextcloud_domain='cloud.example.com'
+nextcloud_url='http://cloud.example.com'
 nextcloud_port='80'
 
 nextcloud_domain_prompt='Enter the domain which will be used to access NextCloud'
@@ -139,7 +140,7 @@ function read_password()
 # installation functions
 function install_packages()
 {
-    pacman -S nextcloud mariadb php-fpm php-intl php-imagick php-gd << EOF
+    pacman -S nextcloud nginx mariadb php-fpm php-intl php-imagick php-gd << EOF
 $(echo)
 $(echo)
 $(echo)
@@ -190,15 +191,6 @@ function configure_ini()
 {
     # define local parameters
     local ini_file=${1}
-    local memory_limit=${2}
-    local timezone=${3}
-
-    local upload_max_filesize=${4}
-    local post_max_size=${5}
-
-    local max_input_time=${6}
-    local max_execution_time=${7}
-    local max_file_uploads=${8}
 
     # configure settings
     sed -i "s/memory_limit =.*/memory_limit = ${memory_limit}/" ${ini_file}
@@ -228,19 +220,6 @@ function configure_ini()
 
 function configure_php()
 {
-    # define local parameters
-    local nextcloud_data_folder=${1}
-
-    local memory_limit=${2}
-    local timezone=${3}
-
-    local upload_max_filesize=${4}
-    local post_max_size=${5}
-
-    local max_input_time=${6}
-    local max_execution_time=${7}
-    local max_file_uploads=${8}
-
     # define the php.ini file paths
     local php_ini="/etc/php/php.ini"
     local nextcloud_ini="/etc/webapps/nextcloud/php.ini"
@@ -253,17 +232,17 @@ function configure_php()
     chown "root:root" ${fpm_ini}
 
     # configure basic settings
-    configure_ini "${nextcloud_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}" "${max_file_uploads}"
-    configure_ini "${fpm_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}" "${max_file_uploads}"
+    configure_ini "${nextcloud_ini}"
+    configure_ini "${fpm_ini}"
 
     # configure php-fpm.ini only
     sed -i "s/;zend_extension=.*/zend_extension=opcache/" ${fpm_ini}
-    sed -i "s/;opcache.enable ?=.*/opcache.enable = 1/" ${fpm_ini}
-    sed -i "s/;opcache.interned_strings_buffer ?=.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
-    sed -i "s/;opcache.max_accelerated_files ?=.*/opcache.max_accelerated_files = 10000/" ${fpm_ini}
-    sed -i "s/;opcache.memory_consumption ?=.*/opcache.memory_consumption = 128/" ${fpm_ini}
-    sed -i "s/;opcache.save_comments ?=.*/opcache.save_comments = 1/" ${fpm_ini}
-    sed -i "s/;opcache.revalidate_freq ?=.*/opcache.revalidate_freq = 1/" ${fpm_ini}
+    sed -i "s/;opcache.enable=.*/opcache.enable = 1/" ${fpm_ini}
+    sed -i "s/;opcache.interned_strings_buffer=.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
+    sed -i "s/;opcache.max_accelerated_files=.*/opcache.max_accelerated_files = 10000/" ${fpm_ini}
+    sed -i "s/;opcache.memory_consumption=.*/opcache.memory_consumption = 128/" ${fpm_ini}
+    sed -i "s/;opcache.save_comments=.*/opcache.save_comments = 1/" ${fpm_ini}
+    sed -i "s/;opcache.revalidate_freq=.*/opcache.revalidate_freq = 1/" ${fpm_ini}
 
     # configure service
     local service_folder="/etc/systemd/system/php-fpm.service.d/"
@@ -274,6 +253,7 @@ function configure_php()
 ExecStart=
 ExecStart=/usr/bin/php-fpm --nodaemonize --fpm-config /etc/php/php-fpm.conf --php-ini /etc/php/php-fpm.ini
 ReadWritePaths=${nextcloud_data_folder}
+ReadWritePaths=${nextcloud_folder}
 ReadWritePaths=/etc/webapps/nextcloud/config
 " > "${service_file}"
 
@@ -324,13 +304,39 @@ php_value[extension] = imagick
     chown "nextcloud:nextcloud" "/etc/webapps/nextcloud" -R
     chown "nextcloud:nextcloud" "/usr/share/webapps/nextcloud" -R
     chown "nextcloud:nextcloud" ${nextcloud_data_folder} -R
+    chown "nextcloud:nextcloud" ${nextcloud_folder} -R
     chown "nextcloud:nextcloud" "/var/lib/nextcloud/" -R
 
     # set permissions
     chmod "755" "/etc/webapps/nextcloud" -R
     chmod "755" "/usr/share/webapps/nextcloud" -R
     chmod "755" ${nextcloud_data_folder} -R
+    chmod "755" ${nextcloud_folder} -R
     chmod "755" "/var/lib/nextcloud/" -R
+
+    systemctl enable php-fpm.service --now
+}
+
+function configure_nextcloud()
+{
+    # install the database tables and add the admin user
+    export NEXTCLOUD_PHP_CONFIG=/etc/webapps/nextcloud/php.ini
+
+    occ maintenance:install \
+        --database=mysql \
+        --database-name=nextcloud \
+        --database-host=localhost:/run/mysqld/mysqld.sock \
+        --database-user=nextcloud \
+        --database-pass=${nextcloud_database_password} \
+        --admin-pass=${admin_password} \
+        --admin-email=${admin_email} \
+        --data-dir=${nextcloud_data_folder}
+
+    # install sessions folder
+    install --owner=nextcloud --group=nextcloud --mode=700 -d "${nextcloud_folder}sessions"
+
+    # add domain to the list of trusted domains
+    sed -i "/0 => 'localhost',/a 1 => '${nextcloud_domain}'" "/etc/webapps/nextcloud/config/config.php"
 }
 
 install_packages
@@ -344,6 +350,8 @@ echo $root_database_password
 nextcloud_database_password=$(read_password "${nextcloud_database_password_prompt}")
 echo $nextcloud_database_password
 
-configure_mariadb "${mysql_data_folder}" "${root_database_password}" "${nextcloud_database_password}"
+configure_mariadb
 
-configure_php "${nextcloud_data_folder}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}" "${max_file_uploads}"
+configure_php
+
+configure_nextcloud
