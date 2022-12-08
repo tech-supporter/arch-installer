@@ -18,6 +18,7 @@ post_max_size='16G'
 
 max_input_time='3600'
 max_execution_time='3600'
+max_file_uploads='500'
 
 memory_limit_prompt='Enter NextCloud memory limit'
 timezone_prompt='Enter NextCloud timezone'
@@ -25,8 +26,9 @@ timezone_prompt='Enter NextCloud timezone'
 upload_max_filesize_prompt='Enter NextCloud maximum file size for uploading'
 post_max_size_prompt='Enter NextCloud maximum "POST" file size'
 
-max_input_time_prompt='Enter NextCLoud maximum input time in seconds'
-max_execution_time_prompt='Enter NextCLoud maximum execution time in seconds'
+max_input_time_prompt='Enter NextCloud maximum input time in seconds'
+max_execution_time_prompt='Enter NextCloud maximum execution time in seconds'
+max_file_uploads_prompt='Enter NextCloud maximum file upload count'
 
 # mysql database
 root_database_password=''
@@ -196,6 +198,7 @@ function configure_ini()
 
     local max_input_time=${6}
     local max_execution_time=${7}
+    local max_file_uploads=${8}
 
     # configure settings
     sed -i "s/memory_limit =.*/memory_limit = ${memory_limit}/" ${ini_file}
@@ -217,7 +220,7 @@ function configure_ini()
     sed -i "s/;extension=iconv/extension=iconv/" ${ini_file}
     sed -i "s/;extension=pdo_mysql/extension=pdo_mysql/" ${ini_file}
     sed -i "s/;extension=mysqli/extension=mysqli/" ${ini_file}
-    sed -i "/^;extension=gzip.*/a extension=imagick" ${ini_file}
+    sed -i "/^extension=zip.*/a extension=imagick" ${ini_file}
 
 }
 
@@ -234,6 +237,7 @@ function configure_php()
 
     local max_input_time=${6}
     local max_execution_time=${7}
+    local max_file_uploads=${8}
 
     # define the php.ini file paths
     local php_ini="/etc/php/php.ini"
@@ -247,17 +251,17 @@ function configure_php()
     chown "root:root" ${fpm_ini}
 
     # configure basic settings
-    configure_ini "${nextcloud_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
-    configure_ini "${fpm_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
+    configure_ini "${nextcloud_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}" "${max_file_uploads}"
+    configure_ini "${fpm_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}" "${max_file_uploads}"
 
     # configure php-fpm.ini only
     sed -i "s/;zend_extension=.*/zend_extension=opcache/" ${fpm_ini}
-    sed -i "s/;opcache.enable=.*/;opcache.enable = 1/" ${fpm_ini}
-    sed -i "s/;opcache.interned_strings_buffer=.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
-    sed -i "s/;opcache.max_accelerated_files=.*/;opcache.max_accelerated_files = 10000/" ${fpm_ini}
-    sed -i "s/;opcache.memory_consumption=.*/;opcache.memory_consumption = 128/" ${fpm_ini}
-    sed -i "s/;opcache.save_comments=.*/opcache.save_comments = 1/" ${fpm_ini}
-    sed -i "s/;opcache.revalidate_freq=.*/opcache.revalidate_freq = 1/" ${fpm_ini}
+    sed -i "s/;opcache.enable.*/opcache.enable = 1/" ${fpm_ini}
+    sed -i "s/;opcache.interned_strings_buffer.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
+    sed -i "s/;opcache.max_accelerated_files.*/opcache.max_accelerated_files = 10000/" ${fpm_ini}
+    sed -i "s/;opcache.memory_consumption.*/opcache.memory_consumption = 128/" ${fpm_ini}
+    sed -i "s/;opcache.save_comments.*/opcache.save_comments = 1/" ${fpm_ini}
+    sed -i "s/;opcache.revalidate_freq.*/opcache.revalidate_freq = 1/" ${fpm_ini}
 
     # configure service
     local service_folder="/etc/systemd/system/php-fpm.service.d/"
@@ -294,6 +298,7 @@ php_value[upload_max_filesize] = ${upload_max_filesize}
 php_value[post_max_size] = ${post_max_size}
 php_value[max_input_time] = ${max_input_time}
 php_value[max_execution_time] = ${max_execution_time}
+php_value[max_file_uploads] = ${max_file_uploads}
 
 php_value[extension] = bcmath
 php_value[extension] = bz2
