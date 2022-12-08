@@ -268,6 +268,12 @@ ReadWritePaths=/etc/webapps/nextcloud/config
     sed -i "s/user = http/user = nextcloud/" ${nextcloud_conf_file}
     sed -i "s/group = http/group = nextcloud/" ${nextcloud_conf_file}
 
+    sed -i "s/;env[HOSTNAME] =.*/env[HOSTNAME] = \$HOSTNAME/" ${nextcloud_conf_file}
+    sed -i "s,;env[PATH] =.*,env[PATH] = /usr/local/bin:/user/bin:/bin," ${nextcloud_conf_file}
+    sed -i "s,;env[TMP] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
+    sed -i "s,;env[TMPDIR] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
+    sed -i "s,;env[TEMP] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
+
     echo "
 php_value[memory_limit] = ${memory_limit}
 php_value[date.timezone] = ${timezone}
@@ -454,7 +460,7 @@ EOF
     chmod "755" ${nextcloud_nginx_config_file}
 
     # configure existing nginx conf to include other configs
-    sed -i "/include.*/a include /etc/nginx/conf.d/*.conf;" ${nginx_config_file}
+    sed -i "/mime.types;/a include /etc/nginx/conf.d/*.conf;" ${nginx_config_file}
 
     # configure the fastcgi pass through, builds from the bottom up
     sed -i "/# pass the PHP.*/a }" ${nginx_config_file}
@@ -463,7 +469,9 @@ EOF
     sed -i "/# pass the PHP.*/a fastcgi_index index.php;" ${nginx_config_file}
     sed -i "/# pass the PHP.*/a fastcgi_pass unix:/run/php-fpm/php-fpm.sock;" ${nginx_config_file}
     sed -i "/# pass the PHP.*/a root /usr/share/nginx/html;" ${nginx_config_file}
-    sed -i "/# pass the PHP.*/a location ~ \.php\$ {" ${nginx_config_file}
+    sed -i "/# pass the PHP.*/a location ~ \\.php\$ {" ${nginx_config_file}
+
+    systemctl enable nginx.service --now
 }
 
 install_packages
