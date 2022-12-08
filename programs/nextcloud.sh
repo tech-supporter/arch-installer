@@ -123,7 +123,7 @@ function read_password()
     if ! [[ -z ${default_value} ]]; then
         prompt="${prompt}: (default: ${default_value})"
     fi
-    while ! [[ -z ${value} ]]; do
+    while [[ -z ${value} ]]; do
         read -p "${prompt}" typed
         if [[ -z ${typed} ]] && ! [[ -z ${default_value} ]]; then
             value=${default_value}
@@ -302,7 +302,7 @@ php_value[extension] = imagick
     mkdir -vp "/etc/pacman.d/hooks"
     cp -a "/usr/share/doc/nextcloud/nextcloud.hook" "/etc/pacman.d/hooks/nextcloud.hook"
 
-    sed -i "s,Exec =.*,Exec = /usr/bin/runuser -u nextcloud -- /usr/bin/php --php-ini /etc/webapps/nextcloud/php.ini /usr/share/webapps/nextcloud/occ upgrade,"
+    sed -i "s,Exec =.*,Exec = /usr/bin/runuser -u nextcloud -- /usr/bin/php --php-ini /etc/webapps/nextcloud/php.ini /usr/share/webapps/nextcloud/occ upgrade," "/etc/pacman.d/hooks/nextcloud.hook"
 
     # set owner and group
     chown "nextcloud:nextcloud" "/etc/webapps/nextcloud" -R
