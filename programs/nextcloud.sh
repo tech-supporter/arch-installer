@@ -197,6 +197,7 @@ function configure_ini()
     local max_input_time=${6}
     local max_execution_time=${7}
 
+    # configure settings
     sed -i "s/memory_limit =.*/memory_limit = ${memory_limit}/" ${ini_file}
     sed -i "s,;date.timezone =,date.timezone = ${timezone}," ${ini_file}
 
@@ -205,6 +206,19 @@ function configure_ini()
 
     sed -i "s/max_input_time =.*/max_input_time = ${max_input_time}/" ${ini_file}
     sed -i "s/max_execution_time =.*/max_execution_time = ${max_execution_time}/" ${ini_file}
+
+    # configure extensions
+    sed -i "s/;extension=bcmath/extension=bcmath/" ${ini_file}
+    sed -i "s/;extension=bz2/extension=bz2/" ${ini_file}
+    sed -i "s/;extension=exif/extension=exif/" ${ini_file}
+    sed -i "s/;extension=gd/extension=gd/" ${ini_file}
+    sed -i "s/;extension=gmp/extension=gmp/" ${ini_file}
+    sed -i "s/;extension=intl/extension=intl/" ${ini_file}
+    sed -i "s/;extension=iconv/extension=iconv/" ${ini_file}
+    sed -i "s/;extension=pdo_mysql/extension=pdo_mysql/" ${ini_file}
+    sed -i "s/;extension=mysqli/extension=mysqli/" ${ini_file}
+    sed -i "/^;extension=gzip.*/a extension=imagick" ${ini_file}
+
 }
 
 function configure_php()
@@ -237,7 +251,7 @@ function configure_php()
     configure_ini "${fpm_ini}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
 
     # configure php-fpm.ini only
-    sed -i "s/;zend_extension=*/zend_extension=opcache/" ${fpm_ini}
+    sed -i "s/;zend_extension=.*/zend_extension=opcache/" ${fpm_ini}
     sed -i "s/;opcache.enable=.*/;opcache.enable = 1/" ${fpm_ini}
     sed -i "s/;opcache.interned_strings_buffer=.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
     sed -i "s/;opcache.max_accelerated_files=.*/;opcache.max_accelerated_files = 10000/" ${fpm_ini}
@@ -247,7 +261,7 @@ function configure_php()
 
     # configure service
     local service_folder="/etc/systemd/system/php-fpm.service.d/"
-    mkdir -p $${service_folder}
+    mkdir -p ${service_folder}
     local service_file="${service_folder}override.conf"
     echo "
     [Service]
@@ -274,6 +288,13 @@ function configure_php()
     sed -i "s/group = http/group = nextcloud/" ${nextcloud_conf_file}
 
     echo "
+php_value[memory_limit] = ${memory_limit}
+php_value[date.timezone] = ${timezone}
+php_value[upload_max_filesize] = ${upload_max_filesize}
+php_value[post_max_size] = ${post_max_size}
+php_value[max_input_time] = ${max_input_time}
+php_value[max_execution_time] = ${max_execution_time}
+
 php_value[extension] = bcmath
 php_value[extension] = bz2
 php_value[extension] = exif
@@ -285,18 +306,6 @@ php_value[extension] = pdo_mysql
 php_value[extension] = mysqli
 php_value[extension] = imagick
 " >> ${nextcloud_conf_file}
-
-    # configure fpm ini file
-    sed -i "s/;extension=bcmath/extension=bcmath/" ${fpm_ini}
-    sed -i "s/;extension=bz2/extension=bz2/" ${fpm_ini}
-    sed -i "s/;extension=exif/extension=exif/" ${fpm_ini}
-    sed -i "s/;extension=gd/extension=gd/" ${fpm_ini}
-    sed -i "s/;extension=gmp/extension=gmp/" ${fpm_ini}
-    sed -i "s/;extension=intl/extension=intl/" ${fpm_ini}
-    sed -i "s/;extension=iconv/extension=iconv/" ${fpm_ini}
-    sed -i "s/;extension=pdo_mysql/extension=pdo_mysql/" ${fpm_ini}
-    sed -i "s/;extension=mysqli/extension=mysqli/" ${fpm_ini}
-    echo "extension=imagick" >> ${fpm_ini}
 
     # set up pacman hook to update the database
     mkdir -vp "/etc/pacman.d/hooks"
