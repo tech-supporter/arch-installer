@@ -123,11 +123,11 @@ function read_password()
     if ! [[ -z ${default_value} ]]; then
         prompt="${prompt}: (default: ${default_value})"
     fi
-    while ! [[ -d ${value} ]]; do
+    while ! [[ -z ${value} ]]; do
         read -p "${prompt}" typed
         if [[ -z ${typed} ]] && ! [[ -z ${default_value} ]]; then
             value=${default_value}
-        elif [[ -d ${typed} ]]; then
+        elif ! [[ -z ${typed} ]]; then
             value=${typed}
         fi
     done
@@ -246,7 +246,9 @@ function configure_php()
     sed -i "s/;opcache.revalidate_freq=.*/opcache.revalidate_freq = 1/" ${fpm_ini}
 
     # configure service
-    local service_file="/etc/systemd/system/php-fpm.service.d/override.conf"
+    local service_folder="/etc/systemd/system/php-fpm.service.d/"
+    mkdir -p $${service_folder}
+    local service_file="${service_folder}override.conf"
     echo "
     [Service]
     ExecStart=
@@ -309,22 +311,22 @@ php_value[extension] = imagick
     chown "nextcloud:nextcloud" "/var/lib/nextcloud/" -R
 
     # set permissions
-    chmod "770" "/etc/webapps/nextcloud" -R
-    chmod "770" "/usr/share/webapps/nextcloud" -R
-    chmod "770" ${nextcloud_data_folder} -R
-    chmod "770" "/var/lib/nextcloud/" -R
+    chmod "755" "/etc/webapps/nextcloud" -R
+    chmod "755" "/usr/share/webapps/nextcloud" -R
+    chmod "755" ${nextcloud_data_folder} -R
+    chmod "755" "/var/lib/nextcloud/" -R
 }
+
+install_packages
 
 mysql_data_folder=$(read_folder "${mysql_data_folder_prompt}" "${mysql_data_folder}")
 echo $mysql_data_folder
 
-root_database_password=$(read_whole_number "${root_database_password_prompt}")
+root_database_password=$(read_password "${root_database_password_prompt}")
 echo $root_database_password
 
-nextcloud_database_password=$(read_whole_number "${nextcloud_database_password_prompt}")
+nextcloud_database_password=$(read_password "${nextcloud_database_password_prompt}")
 echo $nextcloud_database_password
-
-install_packages
 
 configure_mariadb "${mysql_data_folder}" "${root_database_password}" "${nextcloud_database_password}"
 
