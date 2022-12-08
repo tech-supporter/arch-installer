@@ -154,7 +154,7 @@ EOF
 function configure_mariadb()
 {
     # init mariadb
-    mariadb-install-db --user=mysql --basedir=/usr --datadir=${data_folder}
+    mariadb-install-db --user=mysql --basedir=/usr --datadir=${mysql_data_folder}
 
     # enable and start database
     systemctl enable mariadb --now
@@ -164,8 +164,8 @@ function configure_mariadb()
 $(echo)
 y
 y
-${root_password}
-${root_password}
+${root_database_password}
+${root_database_password}
 y
 y
 y
@@ -174,7 +174,7 @@ EOF
 
     # add nextcloud user to database
     mysql -u root << EOF
-CREATE USER 'nextcloud'@'localhost' IDENTIFIED BY '${nextcloud_password}';
+CREATE USER 'nextcloud'@'localhost' IDENTIFIED BY '${nextcloud_database_password}';
 CREATE DATABASE IF NOT EXISTS nextcloud CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 GRANT ALL PRIVILEGES on nextcloud.* to 'nextcloud'@'localhost';
 FLUSH privileges;
