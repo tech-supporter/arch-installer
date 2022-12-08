@@ -63,7 +63,7 @@ function read_storage_size()
     local value=''
     local regex='^[0-9]+[bkmgBKMG]$'
     if ! [[ -z ${default_value} ]]; then
-        prompt="${prompt}: (default: ${default_value})"
+        prompt="${prompt}(default: ${default_value})"
     fi
     while [[ -z ${value} ]]; do
         read -p "${prompt}" typed
@@ -84,7 +84,7 @@ function read_whole_number()
     local value=''
     local regex='^[0-9]+$'
     if ! [[ -z ${default_value} ]]; then
-        prompt="${prompt}: (default: ${default_value})"
+        prompt="${prompt}(default: ${default_value})"
     fi
     while [[ -z ${value} ]]; do
         read -p "${prompt}" typed
@@ -104,7 +104,7 @@ function read_folder()
     local typed=''
     local value=''
     if ! [[ -z ${default_value} ]]; then
-        prompt="${prompt}: (default: ${default_value})"
+        prompt="${prompt}(default: ${default_value})"
     fi
     while ! [[ -d ${value} ]]; do
         read -p "${prompt}" typed
@@ -128,7 +128,7 @@ function read_email()
     local value=''
     local regex='^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$'
     if ! [[ -z ${default_value} ]]; then
-        prompt="${prompt}: (default: ${default_value})"
+        prompt="${prompt}(default: ${default_value})"
     fi
     while [[ -z ${value} ]]; do
         read -p "${prompt}" typed
@@ -148,7 +148,7 @@ function read_password()
     local typed=''
     local value=''
     if ! [[ -z ${default_value} ]]; then
-        prompt="${prompt}: (default: ${default_value})"
+        prompt="${prompt}(default: ${default_value})"
     fi
     while [[ -z ${value} ]]; do
         read -p "${prompt}" typed
@@ -526,7 +526,7 @@ nextcloud_domain=$(echo "${domain_and_port}" | sed 's/:.*//')
 echo $nextcloud_domain
 
 nextcloud_port=$(echo "${domain_and_port}" | awk -F: '{print $2}')
-if [[ -z ${nextlcoud_port} ]]; then
+if [[ -z ${nextcloud_port} ]]; then
     https_regex='^https.*'
     if [[ ${nextcloud_url} =~ ${https_regex} ]]; then
         nextcloud_port='443'
@@ -570,5 +570,5 @@ configure_nextcloud
 configure_nginx
 
 clear
-echo "Basic NextCloud Installation is now complete."
+echo "Basic NextCloud installation is now complete."
 echo "Setup a dns rewrite from your dns server to point ${nextcloud_domain} to this server's ip address."
