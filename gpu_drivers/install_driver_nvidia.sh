@@ -16,6 +16,9 @@ y
 install_commands
 
     # create the dynamic kernal module support hook
+    # it's likely that only the linux and nvidia-dkms targets are required
+    # but to avoid any potential of something failing, putting all the packages in there
+    # though this will rebuild the kernal for each package that is updated so might want to trim this down to just the required ones
     local hooks_path="/mnt/etc/pacman.d/hooks/"
     echo "Creating DKMS hook..."
     mkdir -p ${hooks_path}
@@ -26,12 +29,21 @@ Operation=Upgrade
 Operation=Remove
 Type=Package
 Target=nvidia
+Target=nvidia-dkms
+Target=nvidia-utils
+Target=opencl-nvidia
+Target=libglvnd
+Target=lib32-libglvnd
+Target=lib32-nvidia-utils
+Target=lib32-opencl-nvidia
+Target=nvidia-settings
+Target=linux
 
 [Action]
 Depends=mkinitcpio
 When=PostTransaction
 Exec=/usr/bin/mkinitcpio -P
-' > "${hooks_path}nvidia"
+' > "${hooks_path}nvidia.hook"
 
     # update kernal modules
     echo "Updating kernal modules list..."
