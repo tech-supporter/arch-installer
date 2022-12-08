@@ -45,7 +45,7 @@ admin_email='admin@example.com'
 admin_password='admin'
 
 admin_email_prompt='Enter NextCloud admin email'
-admin_password_prompt='Enter NextCLoud admin password'
+admin_password_prompt='Enter NextCloud admin password'
 
 # nextcloud config
 nextcloud_domain='cloud.example.com'
@@ -112,6 +112,9 @@ function read_folder()
             value=${default_value}
         elif [[ -d ${typed} ]]; then
             value=${typed}
+            if ! [[ ${value} = */ ]]; then
+                value="${value}/"
+            fi
         fi
     done
     echo ${value}
@@ -178,7 +181,7 @@ function configure_mariadb()
     mariadb-install-db --user=mysql --basedir=/usr --datadir=${mysql_data_folder}
 
     # set data directory in the server.cnf
-    sed -i "/\[server\]/a datadir=${mysql_data_folder}"
+    sed -i "/\[server\]/a datadir=${mysql_data_folder}" "/etc/my.cnf.d/server.cnf"
 
     # enable and start database
     systemctl enable mariadb --now
