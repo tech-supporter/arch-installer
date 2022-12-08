@@ -268,11 +268,11 @@ ReadWritePaths=/etc/webapps/nextcloud/config
     sed -i "s/user = http/user = nextcloud/" ${nextcloud_conf_file}
     sed -i "s/group = http/group = nextcloud/" ${nextcloud_conf_file}
 
-    sed -i "s/;env[HOSTNAME] =.*/env[HOSTNAME] = \$HOSTNAME/" ${nextcloud_conf_file}
-    sed -i "s,;env[PATH] =.*,env[PATH] = /usr/local/bin:/user/bin:/bin," ${nextcloud_conf_file}
-    sed -i "s,;env[TMP] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
-    sed -i "s,;env[TMPDIR] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
-    sed -i "s,;env[TEMP] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
+    sed -i "s/;env\[HOSTNAME\] =.*/env[HOSTNAME] = \$HOSTNAME/" ${nextcloud_conf_file}
+    sed -i "s,;env\[PATH\] =.*,env[PATH] = /usr/local/bin:/user/bin:/bin," ${nextcloud_conf_file}
+    sed -i "s,;env\[TMP\] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
+    sed -i "s,;env\[TMPDIR\] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
+    sed -i "s,;env\[TEMP\] =.*,env[TMP] = /tmp," ${nextcloud_conf_file}
 
     echo "
 php_value[memory_limit] = ${memory_limit}
@@ -489,17 +489,17 @@ echo $root_database_password
 nextcloud_database_password=$(read_password "${nextcloud_database_password_prompt}")
 echo $nextcloud_database_password
 
+nextcloud_url=$(read_password "${nextcloud_url_prompt}" "${nextcloud_url}")
+echo $nextcloud_url
+
+nextcloud_domain=$(echo ${nextcloud_url} | awk -F/ '{print $3}')
+echo $nextcloud_domain
+
 admin_email=$(read_password "${admin_email_prompt}" "${admin_email}")
 echo $admin_email
 
 admin_password=$(read_password "${admin_password_prompt}")
 echo $admin_password
-
-nextcloud_url=$(read_password "${nextcloud_url_prompt}" "${nextcloud_url}")
-echo $nextcloud_url
-
-nextcloud_domain=$(read_password "${nextcloud_domain_prompt}" "${nextcloud_domain}")
-echo $nextcloud_domain
 
 configure_mariadb
 
@@ -511,4 +511,4 @@ configure_nginx
 
 clear
 echo "Basic NextCLoud Installation is now complete."
-echo "Setup a dns rewrite from your dns server to point ${nextcloud_domain} to this server's ip address"
+echo "Setup a dns rewrite from your dns server to point ${nextcloud_domain} to this server's ip address."
