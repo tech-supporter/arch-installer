@@ -177,6 +177,9 @@ function configure_mariadb()
     # init mariadb
     mariadb-install-db --user=mysql --basedir=/usr --datadir=${mysql_data_folder}
 
+    # set data directory in the server.cnf
+    sed -i "/\[server\]/a datadir=${mysql_data_folder}"
+
     # enable and start database
     systemctl enable mariadb --now
 
