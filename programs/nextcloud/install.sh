@@ -57,7 +57,7 @@ nextcloud_url_prompt='Enter the url which will be used to access NextCloud'
 # input functions
 function read_storage_size()
 {
-    local prompt=${1}
+    local prompt="${1}: "
     local default_value=${2}
     local typed=''
     local value=''
@@ -78,7 +78,7 @@ function read_storage_size()
 
 function read_whole_number()
 {
-    local prompt=${1}
+    local prompt="${1}: "
     local default_value=${2}
     local typed=''
     local value=''
@@ -99,7 +99,7 @@ function read_whole_number()
 
 function read_folder()
 {
-    local prompt=${1}
+    local prompt="${1}: "
     local default_value=${2}
     local typed=''
     local value=''
@@ -117,9 +117,30 @@ function read_folder()
     echo ${value}
 }
 
+function read_email()
+{
+    local prompt="${1}: "
+    local default_value=${2}
+    local typed=''
+    local value=''
+    local regex='^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$'
+    if ! [[ -z ${default_value} ]]; then
+        prompt="${prompt}: (default: ${default_value})"
+    fi
+    while [[ -z ${value} ]]; do
+        read -p "${prompt}" typed
+        if [[ -z ${typed} ]] && ! [[ -z ${default_value} ]]; then
+            value=${default_value}
+        elif [[ ${typed} =~ ${regex} ]]; then
+            value=${typed}
+        fi
+    done
+    echo ${value}
+}
+
 function read_password()
 {
-    local prompt=${1}
+    local prompt="${1}: "
     local default_value=${2}
     local typed=''
     local value=''
@@ -500,7 +521,7 @@ echo $nextcloud_domain
 
 nextcloud_port=$(echo "${domain_and_port}" | awk -F: '{print $2}')
 if [[ -z ${nextlcoud_port} ]]; then
-    https_regex='https.*'
+    https_regex='^https.*'
     if [[ ${nextcloud_url} =~ ${https_regex} ]]; then
         nextcloud_port='443'
     else
@@ -521,7 +542,7 @@ echo $upload_max_filesize
 post_max_size=$(read_storage_size "${post_max_size_prompt}" "${post_max_size}")
 echo $post_max_size
 
-admin_email=$(read_password "${admin_email_prompt}" "${admin_email}")
+admin_email=$(read_email "${admin_email_prompt}" "${admin_email}")
 echo $admin_email
 
 admin_password=$(read_password "${admin_password_prompt}")
