@@ -210,6 +210,8 @@ function configure_ini()
     sed -i "s/max_input_time =.*/max_input_time = ${max_input_time}/" ${ini_file}
     sed -i "s/max_execution_time =.*/max_execution_time = ${max_execution_time}/" ${ini_file}
 
+    sed -i "s/max_file_uploads =.*/max_file_uploads = ${max_file_uploads}/" ${ini_file}
+
     # configure extensions
     sed -i "s/;extension=bcmath/extension=bcmath/" ${ini_file}
     sed -i "s/;extension=bz2/extension=bz2/" ${ini_file}
@@ -256,30 +258,30 @@ function configure_php()
 
     # configure php-fpm.ini only
     sed -i "s/;zend_extension=.*/zend_extension=opcache/" ${fpm_ini}
-    sed -i "s/;opcache.enable.*/opcache.enable = 1/" ${fpm_ini}
-    sed -i "s/;opcache.interned_strings_buffer.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
-    sed -i "s/;opcache.max_accelerated_files.*/opcache.max_accelerated_files = 10000/" ${fpm_ini}
-    sed -i "s/;opcache.memory_consumption.*/opcache.memory_consumption = 128/" ${fpm_ini}
-    sed -i "s/;opcache.save_comments.*/opcache.save_comments = 1/" ${fpm_ini}
-    sed -i "s/;opcache.revalidate_freq.*/opcache.revalidate_freq = 1/" ${fpm_ini}
+    sed -i "s/;opcache.enable ?=.*/opcache.enable = 1/" ${fpm_ini}
+    sed -i "s/;opcache.interned_strings_buffer ?=.*/opcache.interned_strings_buffer = 8/" ${fpm_ini}
+    sed -i "s/;opcache.max_accelerated_files ?=.*/opcache.max_accelerated_files = 10000/" ${fpm_ini}
+    sed -i "s/;opcache.memory_consumption ?=.*/opcache.memory_consumption = 128/" ${fpm_ini}
+    sed -i "s/;opcache.save_comments ?=.*/opcache.save_comments = 1/" ${fpm_ini}
+    sed -i "s/;opcache.revalidate_freq ?=.*/opcache.revalidate_freq = 1/" ${fpm_ini}
 
     # configure service
     local service_folder="/etc/systemd/system/php-fpm.service.d/"
     mkdir -p ${service_folder}
     local service_file="${service_folder}override.conf"
     echo "
-    [Service]
-    ExecStart=
-    ExecStart=/usr/bin/php-fpm --nodaemonize --fpm-config /etc/php/php-fpm.conf --php-ini /etc/php/php-fpm.ini
-    ReadWritePaths=${nextcloud_data_folder}
-    ReadWritePaths=/etc/webapps/nextcloud/config
-    " > "${service_file}"
+[Service]
+ExecStart=
+ExecStart=/usr/bin/php-fpm --nodaemonize --fpm-config /etc/php/php-fpm.conf --php-ini /etc/php/php-fpm.ini
+ReadWritePaths=${nextcloud_data_folder}
+ReadWritePaths=/etc/webapps/nextcloud/config
+" > "${service_file}"
 
     # define config files
     local conf_folder="/etc/php/php-fpm.d/"
     local www_conf_file="${conf_folder}www.conf"
     local nextcloud_conf_file="${conf_folder}nextcloud.conf"
-    local backup_conf_file="${conf_folder}www.conf.backup"
+    local backup_conf_file="${conf_folder}www.conf.package"
 
     cp ${www_conf_file} ${nextcloud_conf_file}
     cp ${www_conf_file} ${backup_conf_file}
@@ -344,4 +346,4 @@ echo $nextcloud_database_password
 
 configure_mariadb "${mysql_data_folder}" "${root_database_password}" "${nextcloud_database_password}"
 
-configure_php "${nextcloud_data_folder}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}"
+configure_php "${nextcloud_data_folder}" "${memory_limit}" "${timezone}" "${upload_max_filesize}" "${post_max_size}" "${max_input_time}" "${max_execution_time}" "${max_file_uploads}"
