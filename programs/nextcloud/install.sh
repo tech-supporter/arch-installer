@@ -1,7 +1,9 @@
 #!/usr/bin/bash
 
-# define variables
+# this script assumes a fresh install of arch linux
+# errors may appear if some configuration files already exist for the packages being installed
 
+# define variables
 # data folders
 mysql_data_folder='/var/lib/mysql/'
 nextcloud_data_folder='/var/lib/nextcloud/data/'
@@ -15,7 +17,7 @@ memory_limit='1G'
 timezone='America/Chicago'
 
 upload_max_filesize='16G'
-post_max_size='16G'
+post_max_size='4G'
 
 max_input_time='3600'
 max_execution_time='3600'
@@ -50,9 +52,7 @@ nextcloud_domain='cloud.example.com'
 nextcloud_url='http://cloud.example.com'
 nextcloud_port='80'
 
-nextcloud_domain_prompt='Enter the domain which will be used to access NextCloud'
 nextcloud_url_prompt='Enter the url which will be used to access NextCloud'
-nextcloud_port_prompt='Enter the port which will be used to access NextCloud [443 for https, 80 for http]'
 
 # input functions
 function read_storage_size()
@@ -355,8 +355,8 @@ function configure_nginx()
     # https://gitlab.com/eflinux/nextcloudarch
     cat > ${nextcloud_nginx_config_file} << EOF
 server {
-    listen 80;
-    server_name localhost;
+    listen ${nextcloud_port};
+    server_name ${nextcloud_domain};
 
     # Add headers to serve security related headers
     add_header X-Content-Type-Options nosniff;
@@ -476,6 +476,7 @@ EOF
 
 install_packages
 
+# read in user settings
 clear
 mysql_data_folder=$(read_folder "${mysql_data_folder_prompt}" "${mysql_data_folder}")
 echo $mysql_data_folder
@@ -492,8 +493,33 @@ echo $nextcloud_database_password
 nextcloud_url=$(read_password "${nextcloud_url_prompt}" "${nextcloud_url}")
 echo $nextcloud_url
 
-nextcloud_domain=$(echo ${nextcloud_url} | awk -F/ '{print $3}')
+domain_and_port=$(echo ${nextcloud_url} | awk -F/ '{print $3}')
+
+nextcloud_domain=$(echo "${domain_and_port}" | sed 's/:.*//')
 echo $nextcloud_domain
+
+nextcloud_port=$(echo "${domain_and_port}" | awk -F: '{print $2}')
+if [[ -z ${nextlcoud_port} ]]; then
+    https_regex='https.*'
+    if [[ ${nextcloud_url} =~ ${https_regex} ]]; then
+        nextcloud_port='443'
+    else
+        nextcloud_port='80'
+    fi
+fi
+echo $nextcloud_port
+
+timezone=$(read_password "${timezone_prompt}" "${timezone}")
+echo $timezone
+
+memory_limit=$(read_storage_size "${memory_limit_prompt}" "${memory_limit}")
+echo $memory_limit
+
+upload_max_filesize=$(read_storage_size "${upload_max_filesize_prompt}" "${upload_max_filesize}")
+echo $upload_max_filesize
+
+post_max_size=$(read_storage_size "${post_max_size_prompt}" "${post_max_size}")
+echo $post_max_size
 
 admin_email=$(read_password "${admin_email_prompt}" "${admin_email}")
 echo $admin_email
@@ -501,14 +527,21 @@ echo $admin_email
 admin_password=$(read_password "${admin_password_prompt}")
 echo $admin_password
 
+max_input_time=$(read_whole_number "${max_input_time_prompt}" "${max_input_time}")
+echo $max_input_time
+
+max_execution_time=$(read_whole_number "${max_execution_time_prompt}" "${max_execution_time}")
+echo $max_execution_time
+
+max_file_uploads=$(read_whole_number "${max_file_uploads_prompt}" "${max_file_uploads}")
+echo $max_file_uploads
+
+# configure install
 configure_mariadb
-
 configure_php
-
 configure_nextcloud
-
 configure_nginx
 
 clear
-echo "Basic NextCLoud Installation is now complete."
+echo "Basic NextCloud Installation is now complete."
 echo "Setup a dns rewrite from your dns server to point ${nextcloud_domain} to this server's ip address."
