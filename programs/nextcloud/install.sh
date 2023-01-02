@@ -367,7 +367,7 @@ function configure_nextcloud()
     sed -i "/0 => 'localhost',/a 1 => '${nextcloud_domain}'" "/etc/webapps/nextcloud/config/config.php"
 
     # update cli url rewrite
-    sed -i "s,http://localhost,${nextcloud_url},"
+    sed -i "s,http://localhost,${nextcloud_url}," "/etc/webapps/nextcloud/config/config.php"
 }
 
 function configure_nginx()
