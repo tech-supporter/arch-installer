@@ -104,11 +104,6 @@ while [[ ${micro_code} != i* ]] && [[ ${micro_code} != a* ]]; do
 done
 echo "Using ${micro_code} CPU micro-code"
 
-function install_driver_integrated()
-{
-    echo "Integrated grahpics, doing nothing..."
-}
-
 # choose GPU driver
 GPU_driver=''
 GPU_driver_prefix='install_driver_'
