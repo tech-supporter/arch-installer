@@ -27,15 +27,7 @@ export -A configuration=(
 # Checks if the system has booted in uefi mode
 #
 # Globals:
-#   configuration["uefi"]
-#   configuration["cpu_vendor"]
-#   configuration["install_micro_code"]
-#   configuration["root_partition_size"]
-#   configuration["swap_partition_size"]
-#   configuration["kernel"]
-#   configuration["gpu_driver"]
-#   configuration["locale"]
-#   configuration["timezone"]
+#   configuration
 #
 # Arguments:
 #   N/A
@@ -77,7 +69,7 @@ function config::load_defaults()
 # Check UEFI mode and ask user if they wish to reboot if UEFI is disabled
 #
 # Globals:
-#   N/A
+#   configuration["uefi"]
 #
 # Arguments:
 #   N/A
@@ -122,7 +114,6 @@ function config::prompt_uefi()
 #
 # Globals:
 #   configuration["install_micro_code"]
-#   configuration["cpu_vendor"]
 #
 # Arguments:
 #   N/A
@@ -186,7 +177,7 @@ function config::prompt_cpu_vendor()
 # Prompt the user for a gpu driver to install
 #
 # Globals:
-#   configuration["gpu_driver_installer"]
+#   configuration["gpu_driver"]
 #   input_selection
 #
 # Arguments:
@@ -217,11 +208,10 @@ function config::prompt_gpu_driver()
 }
 
 ###################################################################################################
-# Prompt the user for a gpu driver to install
+# Prompt the user for a computer name
 #
 # Globals:
 #   configuration["computer_name"]
-#   configuration["host_name"]
 #
 # Arguments:
 #   N/A
@@ -270,7 +260,7 @@ function config::prompt_kernel()
     local kernels
     local kernel
 
-    kernels=("linux" "linux-lts" "linux-zen" "linux-hardened")
+    kernels=("linux" "linux-lts" "linux-zen" "linux-hardened" "linux-rt" "linux-rt-lts")
 
     input::read_option "Select a Linux Kernel Varient " kernels
     kernel="${input_selection}"
@@ -296,16 +286,22 @@ function config::prompt_kernel()
 #
 # Source:
 #   N/A
+#
+# TODO: make this easy to tell which drive is which using some kind of hardware info like brand
 ###################################################################################################
 function config::prompt_drive()
 {
     local drives
+    local options
     local drive
+    local index
 
     readarray -t drives < <(lsblk | grep disk | awk '{print $1}')
+    readarray -t options < <(lsblk | grep disk | awk '{print $1 " " $4}')
 
-    input::read_option "Select a Drive for Install " drives
-    drive="${input_selection}"
+    input::read_option "Select a Drive for Install " options true
+    index="${input_selection}"
+    drive="${drives[${index}]}"
 
     configuration["drive"]="${drive}"
 
