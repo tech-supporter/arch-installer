@@ -108,7 +108,7 @@ function system::memory_size()
 # Source:
 #   N/A
 ###################################################################################################
-function system::sync_repositories()
+function system::sync_installer_repositories()
 {
     pacman -Sy
 }
@@ -128,13 +128,13 @@ function system::sync_repositories()
 # Source:
 #   N/A
 ###################################################################################################
-function system::update_repositories()
+function system::update_installer_repositories()
 {
     pacman -Syu
 }
 
 ###################################################################################################
-# enables access to the 32-bit pacman repository "multilib" by changing the pacman configuration
+# syncs pacman repositories on an install
 #
 # Globals:
 #   N/A
@@ -148,16 +148,545 @@ function system::update_repositories()
 # Source:
 #   N/A
 ###################################################################################################
+function system::sync_repositories()
+{
+    local root_mount="$1"
+
+    arch-chroot "${root_mount}" "pacman" "-Sy"
+}
+
+###################################################################################################
+# syncs and updates pacman repositories on an install
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::update_repositories()
+{
+    local root_mount="$1"
+
+    arch-chroot "${root_mount}" "pacman" "-Syu"
+}
+
+###################################################################################################
+# enables access to the 32-bit pacman repository "multilib" by changing the pacman configuration
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
 function system::enable_multilib()
 {
+    local root_mount="$1"
+
     local multilib_line
     local insert_line
 
-    multilib_line=$(grep -n '#\[multilib\]' "/etc/pacman.conf" | cut -d ':' -f1)
+    multilib_line=$(grep -n '#\[multilib\]' "${root_mount}/etc/pacman.conf" | cut -d ':' -f1)
 
     if ! [[ -z "${multilib_line}" ]]; then
         include_line=$((multilib_line + 1))
-        sed -i "${multilib_line}c\[multilib\]" "/etc/pacman.conf"
-        sed -i "${include_line}cInclude = /etc/pacman.d/mirrorlist" "/etc/pacman.conf"
+        sed -i "${multilib_line}c\[multilib\]" "${root_mount}/etc/pacman.conf"
+        sed -i "${include_line}cInclude = /etc/pacman.d/mirrorlist" "${root_mount}/etc/pacman.conf"
     fi
+}
+
+###################################################################################################
+# generates the /etc/fstab file for an installation
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::generate_fstab()
+{
+    local root_mount="$1"
+
+    # generate fstab file
+    genfstab -U -p "${root_mount}" > "${root_mount}/etc/fstab"
+}
+
+###################################################################################################
+# sets and generates the locale of the system
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::set_locale()
+{
+    local root_mount="$1"
+    local locale="$2"
+
+    # set locale
+    echo "${locale}" > "${root_mount}/etc/locale.gen"
+    echo "${locale}" > "${root_mount}/etc/locale.conf"
+
+    # generate locale
+    arch-chroot "${root_mount}" "locale-gen"
+}
+
+###################################################################################################
+# sets the host name of the system
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   host name
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::set_hostname()
+{
+    local root_mount="$1"
+    local host_name="$2"
+
+    echo ${host_name} > "${root_mount}/etc/hostname"
+}
+
+###################################################################################################
+# sets machine's basic information
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   computer name
+#   location
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::set_machine_info()
+{
+    local root_mount="$1"
+    local computer_name="$2"
+    local location="$3"
+
+    local machine_info_file="${root_mount}/etc/machine-info"
+
+    echo "PRETTY_HOSTNAME=\"${computer_name}\"" > "${machine_info_file}"
+    echo "ICON_NAME=computer" >> "${machine_info_file}"
+    echo "CHASSIS=desktop" >> "${machine_info_file}"
+    echo "DEPLOYMENT=production" >> "${machine_info_file}"
+    echo "Location=\"${location}\"" >> "${machine_info_file}"
+}
+
+
+###################################################################################################
+# generates the hosts file
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::generate_hosts()
+{
+    local root_mount="$1"
+
+    echo "127.0.0.1    localhost" > "${root_mount}/etc/hosts"
+    echo "::1          localhost" >> "${root_mount}/etc/hosts"
+}
+
+###################################################################################################
+# sets the timezone and hardware clock
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   timezone name in Olson format: America/Chicago
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::set_timezone()
+{
+    local root_mount="$1"
+    local timezone="$1"
+
+    arch-chroot "${root_mount}" "ln" "-s" "/usr/share/zoneinfo/${timezone}" "/etc/localtime"
+    arch-chroot "${root_mount}" "hwclock" "--systohc" "--utc"
+}
+
+###################################################################################################
+# configures the sudoers file of the install
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::generate_sudoers()
+{
+    local root_mount="$1"
+
+    local enabled
+
+    enabled=$(grep "# %wheel ALL=(ALL:ALL) ALL" "${root_mount}/etc/sudoers")
+
+    # make sure if it's already configured, don't attempt to configure again
+    if [[ -n "${enabled}" ]]; then
+        sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' "${root_mount}/etc/sudoers"
+        echo "Defaults rootpw" >> "${root_mount}/etc/sudoers"
+    fi
+}
+
+###################################################################################################
+# sets the root password of the install
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::set_root_password()
+{
+    local root_mount="$1"
+    local password="$2"
+
+arch-chroot "${root_mount}" "passwd" << chroot_commands
+"${password}"
+"${password}"
+chroot_commands
+}
+
+###################################################################################################
+# enables services on the install
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   enable ssh server, true / false
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::enable_services()
+{
+    local root_mount="$1"
+    local enable_ssh_server="$2"
+
+    arch-chroot "${root_mount}" "systemctl" "enable" "NetworkManager.service"
+
+    if $enable_ssh_server; then
+        arch-chroot "${root_mount}" "systemctl" "enable" "sshd.service"
+    fi
+}
+
+###################################################################################################
+# installs the basic packages to make the system
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::install_base_linux()
+{
+    local root_mount="$1"
+    local kernel="$2"
+    local cpu_vendor="$3"
+    local install_micro_code="$4"
+
+    local micro_code
+
+
+pacstrap -i "${root_mount}" "base" "base-devel" "openssh" "git" "linux-firmware" "vim" "bash-completion" "networkmanager" "${kernel}" "${kernel}-headers" << base_install_commands
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+y
+y
+base_install_commands
+
+if $install_micro_code; then
+    micro_code="${cpu_vendor}-ucode"
+
+pacstrap -i "${root_mount}" "${micro_code}" << micro_code_install_commands
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+y
+y
+micro_code_install_commands
+fi
+
+}
+
+###################################################################################################
+# installs the uefi boot loader
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   root partition
+#   cpu vendor
+#   install micro code true / false
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::install_boot_loader_uefi()
+{
+    local root_mount="$1"
+    local root_partition="$2"
+    local cpu_vendor="$3"
+    local install_micro_code="$4"
+
+    local micro_code="${cpu_vendor}-ucode.img"
+    local boot_loader_config="${root_mount}/boot/loader/entries/arch.conf"
+
+    # install boot loader
+    arch-chroot "${root_mount}" "bootctl" "install"
+
+    # make UEFI boot loader file
+    mkdir -p "${root_mount}/boot/loader/entries"
+    echo "title Arch Linux" > "${boot_loader_config}"
+    echo "linux /vmlinuz-linux" >> "${boot_loader_config}"
+
+    if $install_micro_code; then
+        echo "initrd /${micro_code}" >> "${boot_loader_config}"
+    fi
+
+    echo "initrd /initramfs-linux.img" >> "${boot_loader_config}"
+    echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_partition}) rw" >> "${boot_loader_config}"
+}
+
+###################################################################################################
+# installs the bios boot loader
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   root partition
+#   cpu vendor
+#   install micro code true / false
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+# TODO: make the micro code insertion more robust
+###################################################################################################
+function system::install_boot_loader_bios()
+{
+    local root_mount="$1"
+    local root_partition="$2"
+    local cpu_vendor="$3"
+    local install_micro_code="$4"
+
+    local micro_code="${cpu_vendor}-ucode.img"
+    local boot_loader_config="${root_mount}/boot/syslinux/syslinux.cfg"
+    local root_part_uuid
+
+    # install bios boot loader, syslinux
+pacstrap -i "${root_mount}" "syslinux" << syslinux_install_commands
+$(echo)
+y
+syslinux_install_commands
+
+    # install syslinux MBR
+    syslinux-install_update -i -a -m -c "${root_mount}"
+
+    root_part_uuid=$(blkid -s PARTUUID -o value ${root_partition})
+
+    # configure boot loader entry
+    sed -i "s.root=${root_partition}.root=PARTUUID=${root_part_uuid}." "${boot_loader_config}"
+    if $install_micro_code; then
+        sed -i "55 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
+        sed -i "62 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
+    fi
+}
+
+###################################################################################################
+# installs the boot loader
+# Globals:
+#   N/A
+#
+# Arguments:
+#   uefi mode true / false
+#   path to where the root partition is mounted, without trailing slash
+#   root partition
+#   cpu vendor
+#   install micro code true / false
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+# TODO: make the micro code insertion more robust
+###################################################################################################
+function system::install_boot_loader()
+{
+    local uefi="$2"
+    local root_mount="$2"
+    local root_partition="$3"
+    local cpu_vendor="$4"
+    local install_micro_code="$5"
+
+    if $uefi; then
+        system::install_boot_loader_uefi "${root_mount}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
+    else
+        system::install_boot_loader_bios "${root_mount}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
+    fi
+}
+
+###################################################################################################
+# installs the basic packages to make the system
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   configuration array
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::install()
+{
+    local root_mount="$1"
+    local -n config=$2
+    local host_name
+    local root_partition=$(disk::get_root_partition "${config["drive"]}")
+
+    # sync the repos
+    system::sync_installer_repositories
+
+    # enable 32 bit applications on the install media
+    system::enable_multilib ""
+
+    # sync multilib repo
+    system::sync_installer_repositories
+
+    # format the selected drive, create file systems and swap
+    disk::format "${config["drive"]}" "${config["uefi"]}" "${config["root_partition_size"]}" "${config["swap_partition_size"]}"
+
+    # install the basic linux system
+    system::install_base_linux "${root_mount}" "${config["kernel"]}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
+
+    # generate the file that keeps track of partitions
+    system::generate_fstab "${root_mount}"
+
+    system::set_locale "${root_mount}" "${config["locale"]}"
+
+    host_name=$(echo "${config["computer_name"]}" | tr ' ' '-' | tr -dc '[:alnum:]-')
+
+    system::set_hostname "${root_mount}" "${host_name}"
+
+    system::generate_hosts "${root_mount}"
+
+    system::set_machine_info "${root_mount}" "${config["computer_name"]}" "${config["location"]}"
+
+    system::generate_sudoers "${root_mount}"
+
+    system::set_root_password "${root_mount}" "${config["root_password"]}"
+
+    # enable 32 bit reop on new install
+    system::enable_multilib "${root_mount}"
+
+    system::sync_repositories "${root_mount}"
+
+    system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
+
+    driver::install_gpu_driver "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
 }

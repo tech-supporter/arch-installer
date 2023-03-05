@@ -92,8 +92,10 @@ function install::main()
     # show configuration menu
     config::show_menu
 
-    # format the selected drive, create file systems and swap
-    #disk::format "${configuration["drive"]}" "${configuration["uefi"]}" "${configuration["root_partition_size"]}" "${configuration["swap_partition_size"]}"
+    # preform the install with the given configuration
+    system::install "/mnt" configuration
+
+    echo "Installation Complete!"
 }
 
 install::main

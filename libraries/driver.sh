@@ -29,3 +29,32 @@ function driver::source_gpu_driver_installers()
 
     install::source_directory "${driver_directory}"
 }
+
+###################################################################################################
+# installs a given gpu driver
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   gpu driver name
+#   uefi
+#   cpu vendor
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function driver::install_gpu_driver()
+{
+    local root_mount="$1"
+    local gpu_driver="$2"
+    local uefi="$3"
+    local cpu_vendor="$4"
+
+    local installer="driver::install_gpu_driver_${gpu_driver}"
+
+    $installer "${root_mount}" "${uefi}" "${cpu_vendor}"
+}

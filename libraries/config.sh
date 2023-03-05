@@ -18,7 +18,9 @@ export -A configuration=(
     ["kernel"]=""                           # linux kernal varient: linux, linux-lts, linux-hardened, etc
     ["timezone"]=""                         # timezone: America/Chicago
     ["locale"]=""                           # system localization: "en_US.UTF-8 UTF-8"
+    ["location"]=""                         # string descriptor in the machine-info
     ["install_unofficial_repositories"]=""  # install unofficial user repositories, true / false
+    ["enable_ssh_server"]=""                # enable the ssh server after installing, true / false
 )
 
 ###################################################################################################
@@ -55,12 +57,15 @@ function config::load_defaults()
     configuration["cpu_vendor"]=$(system::cpu_vendor)
     configuration["install_micro_code"]=true
     configuration["gpu_driver"]="none"
+    configuration["computer_name"]="Arch Linux Computer"
+    configuration["location"]="Server Room"
     configuration["locale"]="en_US.UTF-8 UTF-8"
     configuration["timezone"]="America/Chicago"
     configuration["root_partition_size"]=64
     configuration["swap_partition_size"]=$(system::memory_size)
     configuration["kernel"]="linux"
     configuration["install_unofficial_repositories"]=false
+    configuration["enable_ssh_server"]=true
 
     if [[ "${configuration["cpu_vendor"]}" == "unknown" ]]; then
         echo "Could not determine CPU vendor!"
@@ -440,6 +445,36 @@ function config::prompt_locale()
     echo "Locale and Character Set: ${locale}"
 }
 
+
+###################################################################################################
+# Prompt the user to select their locale and character set information
+#
+# Globals:
+#   configuration["locale"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_location()
+{
+    local location
+    local prompt="Enter a Location for the Machine: "
+
+    read -p "${prompt}" location
+
+    configuration["location"]="${location}"
+
+    clear
+    echo "Location: ${location}"
+}
+
 ###################################################################################################
 # Prompt the user to select a root password
 # Globals:
@@ -521,6 +556,39 @@ function config::prompt_install_unofficial_repositories()
 }
 
 ###################################################################################################
+# Prompt the user if they want to enable an ssh server
+#
+# Globals:
+#   configuration["enable_ssh_server"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_enable_ssh_server()
+{
+    local option
+    local options=("yes" "no")
+
+    input::read_option "Enable SSH Server?" options
+    option="${input_selection}"
+
+    if [[ "${option}" == "yes" ]]; then
+        configuration["enable_ssh_server"]=true
+    else
+        configuration["enable_ssh_server"]=false
+    fi
+
+    echo "Enable SSH Server: ${configuration["enable_ssh_server"]}"
+}
+
+###################################################################################################
 # Main configuration selection menu
 #
 # Globals:
@@ -549,12 +617,12 @@ function config::show_menu()
     local max_length=0
     local spacing=0
     local spaces
-    local settings=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories"
-                    "Locale" "Timezone" "Computer Name" "Root Password"
+    local settings=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
+                    "Locale" "Timezone" "Computer Name" "Location" "Root Password"
                     "Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
-    local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories"
-                   "locale" "timezone" "computer_name" "root_password"
+    local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories" "enable_ssh_server"
+                   "locale" "timezone" "computer_name" "location" "root_password"
                    "drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-install_driver_none()
+driver::install_gpu_driver_none()
 {
     echo "Installing integrated graphics, doing nothing..."
 }
