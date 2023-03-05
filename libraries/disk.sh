@@ -42,9 +42,9 @@ function disk::format()
 
     disk::partition "${drive}" "${uefi}" "${root_size}" "${swap_size}"
 
-    disk::make_file_systems
+    disk::make_file_systems "${drive}"
 
-    disk::mount_file_systems
+    disk::mount_file_systems "${drive}"
 
     return 0
 }
@@ -256,7 +256,7 @@ function disk::get_partition_by_number()
     local partition_number="$2"
     local partition
 
-    partition=$(fdisk -l | awk '/^\/dev/{print $1}' | grep ${drive} | grep "${partition_number}$")
+    partition=$(fdisk -l | awk '/^\/dev/{print $1}' | grep "${drive}" | grep "${partition_number}$")
 
     echo "${partition}"
 }
@@ -281,7 +281,7 @@ function disk::get_boot_partition()
     local drive="$1"
     local partition
 
-    partition=$(disk::get_partition_by_number "1")
+    partition=$(disk::get_partition_by_number "${drive}" "1")
 
     echo "${partition}"
 }
@@ -306,7 +306,7 @@ function disk::get_swap_partition()
     local drive="$1"
     local partition
 
-    partition=$(disk::get_partition_by_number "2")
+    partition=$(disk::get_partition_by_number "${drive}" "2")
 
     echo "${partition}"
 }
@@ -331,7 +331,7 @@ function disk::get_root_partition()
     local drive="$1"
     local partition
 
-    partition=$(disk::get_partition_by_number "3")
+    partition=$(disk::get_partition_by_number "${drive}" "3")
 
     echo "${partition}"
 }
@@ -356,7 +356,7 @@ function disk::get_home_partition()
     local drive="$1"
     local partition
 
-    partition=$(disk::get_partition_by_number "4")
+    partition=$(disk::get_partition_by_number "${drive}" "4")
 
     echo "${partition}"
 }
@@ -444,10 +444,10 @@ function disk::mount_file_systems()
     local root_partition
     local home_partition
 
-    boot_partition=$(disk::get_boot_partition)
-    swap_partition=$(disk::get_swap_partition)
-    root_partition=$(disk::get_root_partition)
-    home_partition=$(disk::get_home_partition)
+    boot_partition=$(disk::get_boot_partition "${drive}")
+    swap_partition=$(disk::get_swap_partition "${drive}")
+    root_partition=$(disk::get_root_partition "${drive}")
+    home_partition=$(disk::get_home_partition "${drive}")
 
     mount "${root_partition}" "/mnt"
     mount "${boot_partition}" "/mnt/boot"
