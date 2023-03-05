@@ -85,6 +85,7 @@ function install::main()
     # source libraries
     script_directory=$(install::get_script_directory)
     install::source_directory "${script_directory}/libraries/"
+    driver::source_gpu_driver_installers
 
     # connect to the internet
     network::setup

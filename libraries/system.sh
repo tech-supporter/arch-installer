@@ -251,9 +251,14 @@ function system::set_locale()
     local root_mount="$1"
     local locale="$2"
 
+    local language
+
+    # get the language part of the locale
+    language=$(echo "${locale}" | awk '{print $1}')
+
     # set locale
     echo "${locale}" > "${root_mount}/etc/locale.gen"
-    echo "${locale}" > "${root_mount}/etc/locale.conf"
+    echo "LANG=${language}" > "${root_mount}/etc/locale.conf"
 
     # generate locale
     arch-chroot "${root_mount}" "locale-gen"
@@ -415,8 +420,8 @@ function system::set_root_password()
     local password="$2"
 
 arch-chroot "${root_mount}" "passwd" << chroot_commands
-"${password}"
-"${password}"
+${password}
+${password}
 chroot_commands
 }
 
@@ -613,7 +618,7 @@ syslinux_install_commands
 ###################################################################################################
 function system::install_boot_loader()
 {
-    local uefi="$2"
+    local uefi="$1"
     local root_mount="$2"
     local root_partition="$3"
     local cpu_vendor="$4"
