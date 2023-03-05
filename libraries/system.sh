@@ -441,7 +441,7 @@ function system::generate_sudoers()
 #   N/A
 #
 ###################################################################################################
-function system::enable_unofficial_repositories()
+function system::install_unofficial_repositories()
 {
     local root_mount="$1"
 
@@ -755,7 +755,7 @@ function system::install()
     system::enable_multilib "${root_mount}"
 
     if "${config["install_unofficial_repositories"]}"; then
-        enable_unofficial_repositories "${root_mount}"
+        system::install_unofficial_repositories "${root_mount}"
     fi
 
     system::sync_repositories "${root_mount}"
