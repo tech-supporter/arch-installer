@@ -657,7 +657,7 @@ syslinux_install_commands
         sed -i "62 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
     fi
 
-    sed -i "s/linux/${kernel}/g"
+    sed -i "s/linux/${kernel}/g" "${boot_loader_config}"
 }
 
 ###################################################################################################
