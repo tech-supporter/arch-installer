@@ -74,7 +74,7 @@ function disk::partition()
     local root_size="$3"
     local swap_size="$4"
 
-    if uefi; then
+    if $uefi; then
         disk::partition_uefi "${drive}" "${root_size}" "${swap_size}"
     else
         disk::partition_bios "${drive}" "${root_size}" "${swap_size}"
@@ -141,7 +141,7 @@ function disk::partition_uefi()
 
     disk::clear "${drive}"
 
-gdisk "/dev/{$drive}" << partition_commands
+gdisk "/dev/${drive}" << partition_commands
 o
 y
 n
@@ -198,7 +198,7 @@ function disk::partition_bios()
     # In Bios Mode
     # o=made bios signature which is also auto made is none found when opening this program, y to accept
     # n=new, p=partition, number=partition identifier (1-4), empty line to accept default start sector, +#Gib=size or empty to accept default size, y=confirms remove existing signature if pressent or if not no ill effects happen
-fdisk "/dev/{$drive}" << partition_commands
+fdisk "/dev/${drive}" << partition_commands
 o
 y
 n
@@ -250,7 +250,7 @@ partition_commands
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_partiton_by_number()
+function disk::get_partition_by_number()
 {
     local drive="$1"
     local partition_number="$2"
@@ -276,7 +276,7 @@ function disk::get_partiton_by_number()
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_boot_partiton()
+function disk::get_boot_partition()
 {
     local drive="$1"
     local partition
@@ -301,7 +301,7 @@ function disk::get_boot_partiton()
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_swap_partiton()
+function disk::get_swap_partition()
 {
     local drive="$1"
     local partition
@@ -326,7 +326,7 @@ function disk::get_swap_partiton()
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_root_partiton()
+function disk::get_root_partition()
 {
     local drive="$1"
     local partition
@@ -351,7 +351,7 @@ function disk::get_root_partiton()
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_home_partiton()
+function disk::get_home_partition()
 {
     local drive="$1"
     local partition
@@ -383,13 +383,13 @@ function disk::make_file_systems()
 
     local boot_partition
     local swap_partition
-    local root_partiton
-    local home_partiton
+    local root_partition
+    local home_partition
 
-    boot_partition=$(disk::get_boot_partiton "${drive}")
-    swap_partition=$(disk::get_swap_partiton "${drive}")
-    root_partiton=$(disk::get_root_partiton "${drive}")
-    home_partiton=$(disk::get_home_partiton "${drive}")
+    boot_partition=$(disk::get_boot_partition "${drive}")
+    swap_partition=$(disk::get_swap_partition "${drive}")
+    root_partition=$(disk::get_root_partition "${drive}")
+    home_partition=$(disk::get_home_partition "${drive}")
 
 if $uefi; then
 mkfs.fat -F32 "${boot_partition}" << mkfat
@@ -404,16 +404,16 @@ fi
 mkswap "${swap_partition}"
 swapon "${swap_partition}"
 
-mkfs.ext4 "${root_partiton}" << mkfs_cmds
+mkfs.ext4 "${root_partition}" << mkfs_cmds
 y
 mkfs_cmds
 
-mkfs.ext4 "${home_partiton}" << mkfs_cmds
+mkfs.ext4 "${home_partition}" << mkfs_cmds
 y
 mkfs_cmds
 
 # create the directories right away
-mount "${root_partiton}" "/mnt"
+mount "${root_partition}" "/mnt"
 mkdir "/mnt/boot"
 mkdir "/mnt/home"
 umount "/mnt"
@@ -441,15 +441,15 @@ function disk::mount_file_systems()
 
     local boot_partition
     local swap_partition
-    local root_partiton
-    local home_partiton
+    local root_partition
+    local home_partition
 
-    boot_partition=$(disk::get_boot_partiton)
-    swap_partition=$(disk::get_swap_partiton)
-    root_partiton=$(disk::get_root_partiton)
-    home_partiton=$(disk::get_home_partiton)
+    boot_partition=$(disk::get_boot_partition)
+    swap_partition=$(disk::get_swap_partition)
+    root_partition=$(disk::get_root_partition)
+    home_partition=$(disk::get_home_partition)
 
-    mount "${root_partiton}" "/mnt"
-    mount "${boot_part}" "/mnt/boot"
-    mount "${home_part}" "/mnt/home"
+    mount "${root_partition}" "/mnt"
+    mount "${boot_partition}" "/mnt/boot"
+    mount "${home_partition}" "/mnt/home"
 }

@@ -155,7 +155,7 @@ function system::enable_multilib()
 
     multilib_line=$(grep -n '#\[multilib\]' "/etc/pacman.conf" | cut -d ':' -f1)
 
-    if ! [[ -z "${multilib_line}" ]]
+    if ! [[ -z "${multilib_line}" ]]; then
         include_line=$((multilib_line + 1))
         sed -i "${multilib_line}c\[multilib\]" "/etc/pacman.conf"
         sed -i "${include_line}cInclude = /etc/pacman.d/mirrorlist" "/etc/pacman.conf"
