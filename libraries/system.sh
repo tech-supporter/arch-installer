@@ -451,7 +451,7 @@ function system::enable_unofficial_repositories()
     enabled=$(grep "[archzfs]" "${root_mount}/etc/pacman.conf")
 
     # make sure if it's already configured, don't attempt to configure again
-    if [[ -n "${enabled}" ]]; then
+    if [[ -z "${enabled}" ]]; then
         echo "[archzfs]" >> "${root_mount}/etc/pacman.conf"
         echo 'Server = https://archzfs.com/$repo/$arch' >> "${root_mount}/etc/pacman.conf"
         pacman-key -r "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
