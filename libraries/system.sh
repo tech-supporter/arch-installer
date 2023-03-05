@@ -583,9 +583,10 @@ fi
 function system::install_boot_loader_uefi()
 {
     local root_mount="$1"
-    local root_partition="$2"
-    local cpu_vendor="$3"
-    local install_micro_code="$4"
+    local kernel="$2"
+    local root_partition="$3"
+    local cpu_vendor="$4"
+    local install_micro_code="$5"
 
     local micro_code="${cpu_vendor}-ucode.img"
     local boot_loader_config="${root_mount}/boot/loader/entries/arch.conf"
@@ -596,13 +597,13 @@ function system::install_boot_loader_uefi()
     # make UEFI boot loader file
     mkdir -p "${root_mount}/boot/loader/entries"
     echo "title Arch Linux" > "${boot_loader_config}"
-    echo "linux /vmlinuz-linux" >> "${boot_loader_config}"
+    echo "linux /vmlinuz-${kernel}" >> "${boot_loader_config}"
 
     if $install_micro_code; then
         echo "initrd /${micro_code}" >> "${boot_loader_config}"
     fi
 
-    echo "initrd /initramfs-linux.img" >> "${boot_loader_config}"
+    echo "initrd /initramfs-${kernel}.img" >> "${boot_loader_config}"
     echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_partition}) rw" >> "${boot_loader_config}"
 }
 
@@ -629,9 +630,10 @@ function system::install_boot_loader_uefi()
 function system::install_boot_loader_bios()
 {
     local root_mount="$1"
-    local root_partition="$2"
-    local cpu_vendor="$3"
-    local install_micro_code="$4"
+    local kernel="$2"
+    local root_partition="$3"
+    local cpu_vendor="$4"
+    local install_micro_code="$5"
 
     local micro_code="${cpu_vendor}-ucode.img"
     local boot_loader_config="${root_mount}/boot/syslinux/syslinux.cfg"
@@ -654,6 +656,8 @@ syslinux_install_commands
         sed -i "55 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
         sed -i "62 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
     fi
+
+    sed -i "s/linux/${kernel}/g"
 }
 
 ###################################################################################################
@@ -680,14 +684,15 @@ function system::install_boot_loader()
 {
     local uefi="$1"
     local root_mount="$2"
-    local root_partition="$3"
-    local cpu_vendor="$4"
-    local install_micro_code="$5"
+    local kernel="$3"
+    local root_partition="$4"
+    local cpu_vendor="$5"
+    local install_micro_code="$6"
 
     if $uefi; then
-        system::install_boot_loader_uefi "${root_mount}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
+        system::install_boot_loader_uefi "${root_mount}" "${kernel}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
     else
-        system::install_boot_loader_bios "${root_mount}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
+        system::install_boot_loader_bios "${root_mount}" "${kernel}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
     fi
 }
 
@@ -755,7 +760,7 @@ function system::install()
 
     system::sync_repositories "${root_mount}"
 
-    system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
+    system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${config["kernel"]}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
 
     driver::install_gpu_driver "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
 
