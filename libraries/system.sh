@@ -448,7 +448,7 @@ function system::install_unofficial_repositories()
     local enabled
 
     # arch zfs repo
-    enabled=$(grep "[archzfs]" "${root_mount}/etc/pacman.conf")
+    enabled=$(grep "\[archzfs\]" "${root_mount}/etc/pacman.conf")
 
     # make sure if it's already configured, don't attempt to configure again
     if [[ -z "${enabled}" ]]; then
