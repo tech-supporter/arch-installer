@@ -94,6 +94,32 @@ function system::memory_size()
 }
 
 ###################################################################################################
+# re-initialize arch linux key ring for the installer
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   return 0 for UEFI mode enabled, return 1 for UEFI mode disabled
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::init_installer_keyring()
+{
+    system::sync_installer_repositories
+
+    pacman-key --init
+
+pacman -S "archlinux-keyring" << EOF
+y
+EOF
+}
+
+###################################################################################################
 # syncs pacman repositories
 #
 # Globals:
@@ -400,6 +426,40 @@ function system::generate_sudoers()
 }
 
 ###################################################################################################
+# configures the sudoers file of the install
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::enable_unofficial_repositories()
+{
+    local root_mount="$1"
+
+    local enabled
+
+    # arch zfs repo
+    enabled=$(grep "[archzfs]" "${root_mount}/etc/pacman.conf")
+
+    # make sure if it's already configured, don't attempt to configure again
+    if [[ -n "${enabled}" ]]; then
+        echo "[archzfs]" >> "${root_mount}/etc/pacman.conf"
+        echo 'Server = https://archzfs.com/$repo/$arch' >> "${root_mount}/etc/pacman.conf"
+        pacman-key -r "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
+        pacman-key --lsign-key "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
+    fi
+}
+
+###################################################################################################
 # sets the root password of the install
 #
 # Globals:
@@ -654,8 +714,8 @@ function system::install()
     local host_name
     local root_partition=$(disk::get_root_partition "${config["drive"]}")
 
-    # sync the repos
-    system::sync_installer_repositories
+    # sync the repos and re-init the key ring
+    system::init_installer_keyring
 
     # enable 32 bit applications on the install media
     system::enable_multilib ""
@@ -689,9 +749,15 @@ function system::install()
     # enable 32 bit reop on new install
     system::enable_multilib "${root_mount}"
 
+    if "${config["install_unofficial_repositories"]}"; then
+        enable_unofficial_repositories "${root_mount}"
+    fi
+
     system::sync_repositories "${root_mount}"
 
     system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
 
     driver::install_gpu_driver "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
+
+    system::enable_services "${root_mount}" "${config["enable_ssh_server"]}"
 }
