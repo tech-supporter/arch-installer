@@ -719,7 +719,7 @@ function system::install()
     local root_mount="$1"
     local -n config=$2
     local host_name
-    local root_partition=$(disk::get_root_partition "${config["drive"]}")
+    local root_partition
 
     # sync the repos and re-init the key ring
     system::init_installer_keyring
@@ -761,6 +761,8 @@ function system::install()
     fi
 
     system::sync_repositories "${root_mount}"
+
+    root_partition=$(disk::get_root_partition "${config["drive"]}")
 
     system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${config["kernel"]}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
 
