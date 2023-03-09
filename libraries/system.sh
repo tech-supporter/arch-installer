@@ -456,8 +456,8 @@ function system::install_unofficial_repositories()
     if [[ -z "${enabled}" ]]; then
         echo "[archzfs]" >> "${root_mount}/etc/pacman.conf"
         echo 'Server = https://archzfs.com/$repo/$arch' >> "${root_mount}/etc/pacman.conf"
-        pacman-key -r "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
-        pacman-key --lsign-key "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
+        arch-chroot "${root_mount}" "pacman-key" "-r" "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
+        arch-chroot "${root_mount}" "pacman-key" "--lsign-key" "DDF7DB817396A49B2A2723F7403BD972F75D9D76"
     fi
 }
 
