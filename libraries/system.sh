@@ -365,9 +365,11 @@ function system::set_machine_info()
 function system::generate_hosts()
 {
     local root_mount="$1"
+    local host_name="$2"
 
     echo "127.0.0.1    localhost" > "${root_mount}/etc/hosts"
     echo "::1          localhost" >> "${root_mount}/etc/hosts"
+    echo "127.0.1.1    ${host_name}" >> "${root_mount}/etc/hosts"
 }
 
 ###################################################################################################
@@ -604,7 +606,7 @@ function system::install_boot_loader_uefi()
     fi
 
     echo "initrd /initramfs-${kernel}.img" >> "${boot_loader_config}"
-    echo "options root=PARTUUID=$(blkid -s PARTUUID -o value ${root_partition}) rw" >> "${boot_loader_config}"
+    echo "options root=PARTUUID=$(blkid -s PARTUUID -o value "${root_partition}") rw" >> "${boot_loader_config}"
 }
 
 ###################################################################################################
@@ -648,7 +650,7 @@ syslinux_install_commands
     # install syslinux MBR
     syslinux-install_update -i -a -m -c "${root_mount}"
 
-    root_part_uuid=$(blkid -s PARTUUID -o value ${root_partition})
+    root_part_uuid=$(blkid -s PARTUUID -o value "${root_partition}")
 
     # configure boot loader entry
     sed -i "s.root=${root_partition}.root=PARTUUID=${root_part_uuid}." "${boot_loader_config}"
@@ -743,7 +745,7 @@ function system::install()
 
     system::set_hostname "${root_mount}" "${host_name}"
 
-    system::generate_hosts "${root_mount}"
+    system::generate_hosts "${root_mount}" "${host_name}"
 
     system::set_machine_info "${root_mount}" "${config["computer_name"]}" "${config["location"]}"
 
