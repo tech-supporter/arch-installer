@@ -138,7 +138,7 @@ function network::connect_to_wifi()
             echo "Invalid network password."
             state='password'
         else
-            if network::online; then
+            if ! network::online; then
                 echo "Connection failed."
                 state='password'
             else
