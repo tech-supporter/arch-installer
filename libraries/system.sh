@@ -412,8 +412,6 @@ function system::set_timezone()
 # Source:
 #   N/A
 #
-#   TODO: figure out how to set x11 /mnt/etc/X11/xorg.conf.d/00-keyboard.conf correctly (if x11 is being installed)
-#   https://pastebin.com/7e0JmhHR
 ###################################################################################################
 function system::set_key_map()
 {
@@ -421,9 +419,6 @@ function system::set_key_map()
     local key_map="$2"
 
     echo "KEYMAP=${key_map}" > "${root_mount}/etc/vconsole.conf"
-
-    # use this for x11 keyboard config?
-    #systemd-nspawn -b -D "${root_mount}" "localectl" "--no-convert" "set-keymap" "${key_map}"
 }
 
 ###################################################################################################
