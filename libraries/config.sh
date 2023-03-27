@@ -18,6 +18,7 @@ export -A configuration=(
     ["kernel"]=""                           # linux kernal varient: linux, linux-lts, linux-hardened, etc
     ["timezone"]=""                         # timezone: America/Chicago
     ["locale"]=""                           # system localization: "en_US.UTF-8 UTF-8"
+    ["key_map"]=""                          # the keyboard layout for the new and install system
     ["location"]=""                         # string descriptor in the machine-info
     ["install_unofficial_repositories"]=""  # install unofficial user repositories, true / false
     ["enable_ssh_server"]=""                # enable the ssh server after installing, true / false
@@ -412,6 +413,42 @@ function config::prompt_timezone()
 # Prompt the user to select their locale and character set information
 #
 # Globals:
+#   configuration["key_map"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_key_map()
+{
+    local key_map
+    local key_maps
+    local prompt="Select a Keyboard Mapping"
+
+    readarray -t key_maps < <(localectl list-keymaps)
+
+    input::read_option "${prompt}" key_maps
+    key_map="${input_selection}"
+
+    configuration["key_map"]="${key_map}"
+
+    # load in the selected key map right away
+    system::load_key_map "${key_map}"
+
+    clear
+    echo "Keyboard Mapping: ${key_map}"
+}
+
+###################################################################################################
+# Prompt the user to select their locale and character set information
+#
+# Globals:
 #   configuration["locale"]
 #
 # Arguments:
@@ -440,7 +477,6 @@ function config::prompt_locale()
     clear
     echo "Locale and Character Set: ${locale}"
 }
-
 
 ###################################################################################################
 # Prompt the user to select their locale and character set information
@@ -614,11 +650,11 @@ function config::show_menu()
     local spacing=0
     local spaces
     local settings=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
-                    "Locale" "Timezone" "Computer Name" "Location" "Root Password"
+                    "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Root Password"
                     "Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
     local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories" "enable_ssh_server"
-                   "locale" "timezone" "computer_name" "location" "root_password"
+                   "key_map" "locale" "timezone" "computer_name" "location" "root_password"
                    "drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 

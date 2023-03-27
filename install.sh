@@ -67,7 +67,7 @@ function install::source_directory()
 # Main install function serving as entry point to the install script
 #
 # Globals:
-#   N/A
+#   configuration
 #
 # Arguments:
 #   N/A
@@ -86,6 +86,10 @@ function install::main()
     script_directory=$(install::get_script_directory)
     install::source_directory "${script_directory}/libraries/"
     driver::source_gpu_driver_installers
+
+    # select key mapping for installer and default for new install
+    # pick the key map first as they might have issues entering a wifi password on the default mapping
+    config::prompt_key_map
 
     # connect to the internet
     network::setup
