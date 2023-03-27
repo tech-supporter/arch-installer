@@ -398,6 +398,52 @@ function system::set_timezone()
 }
 
 ###################################################################################################
+# sets the key map of the new system, list of keymaps is from 'localectl list-keymaps'
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   name of the key map
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::set_key_map()
+{
+    local root_mount="$1"
+    local key_map="$2"
+
+    echo "KEYMAP=${key_map}" > "${root_mount}/etc/vconsole.conf"
+}
+
+###################################################################################################
+# sets the key map of the installer system, list of keymaps is from 'localectl list-keymaps'
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   name of the key map
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::load_key_map()
+{
+    local key_map="$1"
+
+    loadkeys "${key_map}"
+}
+
+###################################################################################################
 # configures the sudoers file of the install
 #
 # Globals:
@@ -740,6 +786,8 @@ function system::install()
     system::generate_fstab "${root_mount}"
 
     system::set_locale "${root_mount}" "${config["locale"]}"
+
+    system::set_key_map "${root_mount}" "${config["key_map"]}"
 
     host_name=$(echo "${config["computer_name"]}" | tr ' ' '-' | tr -dc '[:alnum:]-')
 

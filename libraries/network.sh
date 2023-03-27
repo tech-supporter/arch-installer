@@ -36,12 +36,12 @@ function network::online()
     # try another one if we fail or timeout
     # if reached, return true
     for website in "${websites[@]}"; do
-        echo "Reaching out to: ${website}"
+        # echo "Reaching out to: ${website}"
         response=$(curl --connect-timeout "${timeout}" -Is "${website}" | head -n 1 | grep "200")
         if [[ -n "${response}" ]]; then
             return 0
         fi
-        echo "Could not connect to: ${website}"
+        # echo "Could not connect to: ${website}"
     done
 
     # could not connect to any websites
