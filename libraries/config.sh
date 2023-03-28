@@ -686,18 +686,11 @@ function config::get_user_count()
 function config::add_user()
 {
     local user="$1"
-    local count
 
-    # quick hack to remove any new line '\n' characters which mess the list up
-    user=(${user})
-    user="${user[@]}"
-
-    count=$(config::get_user_count)
-
-    if [[ "${count}" == 0 ]]; then
-        configuration["users"]="${user}"
+    if [[ -z "${configuration["users"]}" ]]; then
+        configuration["users"]+="${user}"
     else
-        configuration["users"]="${configuration["users"]}${user}"
+        configuration["users"]+=" ${user}"
     fi
 }
 
@@ -838,9 +831,9 @@ function config::prompt_groups()
     for ((i = 0; i < ${#groups[@]}; i++)); do
         if [[ "${group_selection[i]}" == "1" ]]; then
             if [[ -z "${group_text}" ]]; then
-                group_text="${groups[i]}"
+                group_text+="${groups[i]}"
             else
-                group_text="${group_text},${groups[i]}"
+                group_text+=",${groups[i]}"
             fi
         fi
     done
@@ -888,7 +881,7 @@ function config::prompt_add_user()
     password=$(input::read_password "Enter a Password")
 
     clear
-    groups=$(config::prompt_groups)
+    groups="$(config::prompt_groups)"
 
     config::add_user "${username} ${password} ${groups}"
 }

@@ -541,7 +541,7 @@ function input::get_inputs()
 }
 
 ###################################################################################################
-# Return the cursor to normal
+# Cleans up the terminal for the read_option function
 #
 # Globals:
 #   N/A
@@ -554,14 +554,15 @@ function input::get_inputs()
 #
 # Source:
 #   N/A
+#
 ###################################################################################################
-function input::cleanup()
+function input::clean_up_read_option()
 {
-    tput cnorm
+    tput cnorm >$(tty)
 }
 
 ###################################################################################################
-# Reads escape characters and input
+# Shows a menu of selectable options
 #
 # Globals:
 #   input_selection
@@ -594,10 +595,10 @@ function input::read_option()
     local last_index
     local cursor_index
     local display_index
-    local size=10
+    local size=12
 
-    # makes the method call before exiting
-    trap input::cleanup EXIT
+    # make sure we clean up the console if the user exits the script
+    trap input::clean_up_read_option EXIT
 
     index="${starting_index}"
     selection=''
@@ -605,8 +606,8 @@ function input::read_option()
 
     ((last_index=${#input_options[@]}-1))
 
-    #h ides the cursor
-    tput civis
+    # hides the cursor
+    tput civis >$(tty)
 
     while true; do
 
@@ -664,11 +665,12 @@ function input::read_option()
             '[A') ((index=(index+${#input_options[@]}-1)%${#input_options[@]})) ;; # go up
             '[B') ((index=(index+1)%${#input_options[@]})) ;; # go down
             '') selection="${index}"; break 2;;
-            *) >&2 echo 'ERR bad input';
+            *) ;;
         esac
     done
 
-    input::cleanup
+    # reset the cursor to normal
+    input::clean_up_read_option
 
     if [[ -z "${select_index}" ]] || ! $select_index; then
         selection="${input_options[index]}"
