@@ -22,7 +22,7 @@ export -A configuration=(
     ["location"]=""                         # string descriptor in the machine-info
     ["install_unofficial_repositories"]=""  # install unofficial user repositories, true / false
     ["enable_ssh_server"]=""                # enable the ssh server after installing, true / false
-    ["users"]=""                            # space separated user list, passwords and additional groups [user P4ss none user2 g1,g2 pass]
+    ["users"]=""                            # space separated user list, passwords and additional groups, - is none [user P4ss - user2 g1,g2 pass]
 )
 
 ###################################################################################################
@@ -839,7 +839,7 @@ function config::prompt_groups()
     done
 
     if [[ -z "${group_text}" ]]; then
-        group_text="none"
+        group_text="-"
     fi
 
     echo "${group_text}"

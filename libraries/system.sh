@@ -809,10 +809,10 @@ function system::create_users()
         password="${users[password_index]}"
         groups="${users[groups_index]}"
 
-        if [[ "${groups}" == "none" ]]; then
-            arch-chroot "${root_mount}" "useradd" "-m" "-g" "users" "-G" "${groups}" "-s" "/bin/bash" "${username}"
-        else
+        if [[ "${groups}" == "-" ]]; then
             arch-chroot "${root_mount}" "useradd" "-m" "-g" "users" "-s" "/bin/bash" "${username}"
+        else
+            arch-chroot "${root_mount}" "useradd" "-m" "-g" "users" "-G" "${groups}" "-s" "/bin/bash" "${username}"
         fi
 
         arch-chroot "${root_mount}" "passwd" "${username}" << chroot_commands
