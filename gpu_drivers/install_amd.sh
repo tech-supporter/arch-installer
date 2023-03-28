@@ -2,7 +2,7 @@
 
 # untested, install taken from
 # https://wiki.archlinux.org/title/AMDGPU#Installation
-driver::install_amd()
+gpu_driver::install_amd()
 {
     # read in parameters
     local root_mount="$1"

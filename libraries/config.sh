@@ -948,7 +948,7 @@ function config::prompt_users()
 function config::prompt_desktop_environment()
 {
     local option
-    local options=("lxqt" "plasma" "none")
+    local options=("lxqt" "plasma" "xfce" "none")
 
     input::read_option "Select a Desktop Environment" options
     option="${input_selection}"
