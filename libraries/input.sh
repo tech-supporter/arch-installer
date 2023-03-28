@@ -297,6 +297,45 @@ function input::read_yes_no()
 }
 
 ###################################################################################################
+# Prompts user for a new password
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   string prompt
+#
+# Output:
+#   the password entered
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function input::read_password()
+{
+    local prompt="$1"
+
+    local confirm
+    local password
+    local confirm_password
+
+    while [[ -z ${password} ]] || [[ -z ${confirm_password} ]] || [[ ${password} != ${confirm_password} ]]; do
+        read -s -p "${prompt}: " password
+        echo >&2
+        read -s -p "Confirm password: " confirm_password
+        echo >&2
+        if [[ -z ${password} ]] || [[ -z ${confirm_password} ]]; then
+            echo "Password cannot be empty!" >&2
+        elif ! [[ ${password} = ${confirm_password} ]]; then
+            echo "Passwords do not match!" >&2
+        fi
+    done
+
+    echo "${password}"
+}
+
+###################################################################################################
 # Validates that the input is an existing directory
 #
 # Globals:
@@ -502,7 +541,7 @@ function input::get_inputs()
 }
 
 ###################################################################################################
-# Return the cursor to normal
+# Cleans up the terminal for the read_option function
 #
 # Globals:
 #   N/A
@@ -515,14 +554,15 @@ function input::get_inputs()
 #
 # Source:
 #   N/A
+#
 ###################################################################################################
-function input::cleanup()
+function input::clean_up_read_option()
 {
-    tput cnorm
+    tput cnorm >$(tty)
 }
 
 ###################################################################################################
-# Reads escape characters and input
+# Shows a menu of selectable options
 #
 # Globals:
 #   input_selection
@@ -555,10 +595,10 @@ function input::read_option()
     local last_index
     local cursor_index
     local display_index
-    local size=10
+    local size=12
 
-    # makes the method call before exiting
-    trap input::cleanup EXIT
+    # make sure we clean up the console if the user exits the script
+    trap input::clean_up_read_option EXIT
 
     index="${starting_index}"
     selection=''
@@ -566,8 +606,8 @@ function input::read_option()
 
     ((last_index=${#input_options[@]}-1))
 
-    #h ides the cursor
-    tput civis
+    # hides the cursor
+    tput civis >$(tty)
 
     while true; do
 
@@ -596,26 +636,25 @@ function input::read_option()
 
         ((cursor_index=index-start_index))
 
-        clear
-        echo "${prompt}"
-        echo "Use the arrow keys and enter to select"
-        #echo "Index: ${index} Cursor: ${cursor_index} Start: ${start_index} End: ${end_index} Display: ${display_index}"
+        clear >$(tty)
+        echo "${prompt}" >&2
+        echo "Use the arrow keys and enter to select" >&2
 
         if [[ "${start_index}" -gt 0 ]]; then
-            echo "⟰"
+            echo "^" >&2
         fi
 
         for ((i = "${start_index}" ; i <= "${end_index}" ; i++)); do
             ((display_index=i-start_index))
             if [[ "${cursor_index}" != "${display_index}" ]]; then
-                    echo "${input_options[i]}"
+                    echo "${input_options[i]}" >&2
             else
-                    echo -e "\e[4m${input_options[i]}\e[0m"
+                    echo -e "\e[4m${input_options[i]}\e[0m" >&2
             fi
         done
 
         if [[ "${end_index}" -lt "${last_index}" ]]; then
-            echo "⟱"
+            echo "v" >&2
         fi
 
         read -rsn1 mode # get 1 character
@@ -623,23 +662,19 @@ function input::read_option()
             read -rsn2 mode # read 2 more chars
         fi
         case $mode in
-            'q') echo QUITTING ; exit ;;
             '[A') ((index=(index+${#input_options[@]}-1)%${#input_options[@]})) ;; # go up
             '[B') ((index=(index+1)%${#input_options[@]})) ;; # go down
-            '[D') echo LEFT ;;
-            '[C') echo RIGHT ;;
             '') selection="${index}"; break 2;;
-            *) >&2 echo 'ERR bad input';
+            *) ;;
         esac
     done
 
-    input::cleanup
+    # reset the cursor to normal
+    input::clean_up_read_option
 
     if [[ -z "${select_index}" ]] || ! $select_index; then
         selection="${input_options[index]}"
     fi
 
     input_selection="${selection}"
-
-
 }
