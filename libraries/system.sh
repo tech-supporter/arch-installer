@@ -793,6 +793,7 @@ function system::create_users()
     local password
     local groups
 
+    local username_index
     local password_index
     local groups_index
 
@@ -800,12 +801,13 @@ function system::create_users()
     ((count=count/3))
 
     for ((i = 0; i < count; i++)); do
-        ((password_index=i+1))
-        ((groups_index=i+2))
+        ((username_index=i*3))
+        ((password_index=i*3+1))
+        ((groups_index=i*3+2))
 
-        username="${users[i]}"
-        password="${users[$password_index]}"
-        groups="${users[$groups_index]}"
+        username="${users[username_index]}"
+        password="${users[password_index]}"
+        groups="${users[groups_index]}"
 
         if [[ "${groups}" == "none" ]]; then
             arch-chroot "${root_mount}" "useradd" "-m" "-g" "users" "-G" "${groups}" "-s" "/bin/bash" "${username}"
