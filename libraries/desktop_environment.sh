@@ -1,11 +1,11 @@
 #!/usr/bin/bash
 
 ###################################################################################################
-# Handles driver sourcing and driver related functions
+# Handles desktop environment installer sourcing
 ###################################################################################################
 
 ###################################################################################################
-# Sources all GPU driver installation scripts from the gpu drivers directory
+# Sources all desktop environment installation scripts from the desktop environment directory
 #
 # Globals:
 #   N/A
@@ -19,13 +19,13 @@
 # Source:
 #   N/A
 ###################################################################################################
-function driver::source_gpu_driver_installers()
+function desktop_environment::source_installers()
 {
     local script_directory
     local driver_directory
 
     script_directory=$(install::get_script_directory)
-    driver_directory="${script_directory}/gpu_drivers/"
+    driver_directory="${script_directory}/desktop_environments/"
 
     install::source_directory "${driver_directory}"
 }
@@ -37,9 +37,8 @@ function driver::source_gpu_driver_installers()
 #   N/A
 #
 # Arguments:
-#   gpu driver name
-#   uefi
-#   cpu vendor
+#   path where the root of the new system is located
+#   desktop environment
 #
 # Output:
 #   N/A
@@ -47,14 +46,12 @@ function driver::source_gpu_driver_installers()
 # Source:
 #   N/A
 ###################################################################################################
-function driver::install_gpu_driver()
+function desktop_environment::install()
 {
     local root_mount="$1"
-    local gpu_driver="$2"
-    local uefi="$3"
-    local cpu_vendor="$4"
+    local desktop_environment="$2"
 
-    local installer="driver::install_gpu_driver_${gpu_driver}"
+    local installer="desktop_environment::install_${desktop_environment}"
 
-    $installer "${root_mount}" "${uefi}" "${cpu_vendor}"
+    $installer "${root_mount}"
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-driver::install_gpu_driver_nvidia()
+driver::install_nvidia()
 {
     # read in parameters
     local root_mount="$1"
