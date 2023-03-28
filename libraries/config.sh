@@ -22,6 +22,7 @@ export -A configuration=(
     ["location"]=""                         # string descriptor in the machine-info
     ["install_unofficial_repositories"]=""  # install unofficial user repositories, true / false
     ["enable_ssh_server"]=""                # enable the ssh server after installing, true / false
+    ["users"]=""                            # space separated user list, passwords and additional groups [user P4ss none user2 g1,g2 pass]
 )
 
 ###################################################################################################
@@ -521,28 +522,10 @@ function config::prompt_location()
 # Source:
 #   N/A
 #
-# TODO: move some of this into the input file as a read_password function
 ###################################################################################################
 function config::prompt_root_password()
 {
-    local password
-    local confirm_password
-    local prompt="Enter a Password for the Root Account"
-
-    while [[ -z ${password} ]] || [[ -z ${confirm_password} ]] || [[ ${password} != ${confirm_password} ]]; do
-        read -s -p "Enter a Password for the Root Account: " password
-        echo
-        read -s -p "Confirm password: " confirm_password
-        echo
-        clear
-        if [[ -z ${password} ]] || [[ -z ${confirm_password} ]]; then
-            echo "Root password cannot be empty!"
-        elif ! [[ ${password} = ${confirm_password} ]]; then
-            echo "Root passwords do not match!"
-        fi
-    done
-
-    configuration["root_password"]="${password}"
+    configuration["root_password"]="$(input::read_password "Enter a Root Password")"
 
     clear
     echo "Root Password Set"
@@ -621,6 +604,335 @@ function config::prompt_enable_ssh_server()
 }
 
 ###################################################################################################
+# Gets the nth user in the users configuration
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   index of the user, starting at 0
+#
+# Output:
+#   space delimited username, password and additional groups
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::get_user()
+{
+    local index="$1"
+    local username_index
+    local password_index
+    local groups_index
+    local users
+    local user
+
+    ((username_index=index*3))
+    ((password_index=index*3+1))
+    ((groups_index=index*3+2))
+
+    IFS=' ' read -ra users <<< "${configuration["users"]}"
+
+    user="${users[username_index]} ${users[password_index]} ${users[groups_index]}"
+
+    echo "${user}"
+}
+
+###################################################################################################
+# Gets the number of users configured
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   the count of users
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::get_user_count()
+{
+    local users
+    local count
+
+    IFS=' ' read -ra users <<< "${configuration["users"]}"
+
+    ((count=${#users[@]}/3))
+
+    echo "${count}"
+}
+
+###################################################################################################
+# Adds a user to the configuration
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   space delimited user info, username, password additional groups
+#
+# Output:
+#   the count of users
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::add_user()
+{
+    local user="$1"
+    local count
+
+    count=$(config::get_user_count)
+
+    echo "${user}"
+
+    if [[ "${count}" == 0 ]]; then
+        configuration["users"]="${user}"
+    else
+        configuration["users"]="${configuration["users"]} ${user}"
+    fi
+}
+
+###################################################################################################
+# removes a user to the configuration
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   space delimited user info, username, password additional groups
+#
+# Output:
+#   the count of users
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::remove_user()
+{
+    local index="$1"
+    local user_index
+    local password_index
+    local groups_index
+    local users
+    local count
+
+    ((user_index=index*3))
+    ((password_index=user_index+1))
+    ((groups_index=user_index+2))
+
+    count=$(config::get_user_count)
+
+    if [[ "${count}" > 0 ]]; then
+        users=(${configuration["users"]})
+
+        unset users[$groups_index]
+        unset users[$password_index]
+        unset users[$user_index]
+
+        configuration["users"]="${users[@]}"
+    fi
+}
+
+###################################################################################################
+# Gets the names of the users configured
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   the usernames of all users
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::get_user_names()
+{
+    local user
+    local users
+    local count
+    local index
+
+    users=()
+    count=$(config::get_user_count)
+
+    for ((i = 0; i < count; i++)); do
+        ((index=i*3))
+        user=($(config::get_user "${i}"))
+        users[$i]="${user[0]}"
+    done
+
+    echo "${users[@]}"
+}
+
+###################################################################################################
+# prompt the user to select user groups
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_groups()
+{
+    local groups
+    local group_selection
+    local group_text
+    local option_index
+    local options
+
+    groups=($(system::groups))
+    for ((i = 0; i < ${#groups[@]}; i++)); do
+        group_selection[i]="0"
+    done
+
+    while true; do
+        options=()
+
+        for ((i = 0; i < ${#groups[@]}; i++)); do
+            if [[ "${group_selection[i]}" == "1" ]]; then
+                options[i]="[${groups[i]}]"
+            else
+                options[i]="${groups[i]}"
+            fi
+        done
+
+        options[${#options[@]}]="Exit"
+
+        input::read_option "Select Groups" options true "${option_index}"
+        option_index="${input_selection}"
+
+        if [[ "${options["${option_index}"]}" == "Exit" ]]; then
+            break
+        else
+            if [[ "${group_selection["${option_index}"]}" == "0" ]]; then
+                group_selection["${option_index}"]="1"
+            else
+                group_selection["${option_index}"]="0"
+            fi
+        fi
+    done
+
+    group_text=""
+    for ((i = 0; i < ${#groups[@]}; i++)); do
+        if [[ "${group_selection[i]}" == "1" ]]; then
+            if [[ -z "${group_text}" ]]; then
+                group_text="${groups[i]}"
+            else
+                group_text="${group_text},${groups[i]}"
+            fi
+        fi
+    done
+
+    if [[ -z "${group_text}" ]]; then
+        group_text="none"
+    fi
+
+    echo "${group_text}"
+}
+
+###################################################################################################
+# prompt the user for new user details
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+# TODO:
+#   Keep the user from entering two or more users with the same username
+###################################################################################################
+function config::prompt_add_user()
+{
+    local username
+    local password
+    local groups
+
+    local validate_username
+    local username_errors
+
+    clear
+    validate_username=('input::validate_computer_name')
+    username_errors=('Username must be at least 1 character and can only contain letters, numbers, underscores (_) and hyphens (-)')
+    username=$(input::read_validated "Enter a Username" validate_username username_errors)
+
+    clear
+    password=$(input::read_password "Enter a Password")
+
+    clear
+    groups=$(config::prompt_groups)
+
+    config::add_user "${username} ${password} ${groups}"
+}
+
+###################################################################################################
+# UI for adding and removing users
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+# TODO:
+#   Allow the user to edit user definitions and delete them
+###################################################################################################
+function config::prompt_users()
+{
+    local option_index
+    local options
+
+    while true; do
+        options=($(config::get_user_names))
+        options[${#options[@]}]="Add User"
+        options[${#options[@]}]="Exit"
+
+        input::read_option "Select a User to Delete or Add a User" options true
+        option_index="${input_selection}"
+
+        if [[ "${options["${option_index}"]}" == "Add User" ]]; then
+            config::prompt_add_user
+        elif [[ "${options["${option_index}"]}" == "Exit" ]]; then
+            break
+        else
+            config::remove_user "${option_index}"
+        fi
+    done
+}
+
+###################################################################################################
 # Main configuration selection menu
 #
 # Globals:
@@ -650,11 +962,11 @@ function config::show_menu()
     local spacing=0
     local spaces
     local settings=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
-                    "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Root Password"
+                    "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Root Password" "Users"
                     "Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
     local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories" "enable_ssh_server"
-                   "key_map" "locale" "timezone" "computer_name" "location" "root_password"
+                   "key_map" "locale" "timezone" "computer_name" "location" "root_password" "users"
                    "drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 
@@ -690,6 +1002,9 @@ function config::show_menu()
                 options[i]="${options[i]}$(printf "%${#value}s\n" | tr ' ' '*')"
             elif [[ "${prompts[i]}" == "root_partition_size" ]] || [[ "${prompts[i]}" == "swap_partition_size" ]]; then
                 options[i]="${options[i]}${configuration[${prompts[i]}]} GiB"
+            elif [[ "${prompts[i]}" == "users" ]]; then
+                length=$(config::get_user_count)
+                options[i]="${options[i]}${length}"
             else
                 options[i]="${options[i]}${configuration[${prompts[i]}]}"
             fi

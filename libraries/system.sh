@@ -745,6 +745,82 @@ function system::install_boot_loader()
 }
 
 ###################################################################################################
+# Returns a lists groups on the system
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::groups()
+{
+    local groups
+    groups=($(cat /etc/group | cut -f1 -d":"))
+    sorted=($(printf '%s\n' "${groups[@]}" | sort))
+    echo "${sorted[@]}"
+}
+
+###################################################################################################
+# Creates users
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   space separated list, [u1 p1 g1,g2 u2 p2 none]
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::create_users()
+{
+    local root_mount="$1"
+    local users="$2"
+    local count
+    local username
+    local password
+    local groups
+
+    local password_index
+    local groups_index
+
+    count="${#users[@]}"
+    ((count=count/3))
+
+    for ((i = 0; i < count; i++)); do
+        ((password_index=i+1))
+        ((groups_index=i+2))
+
+        username="${users[i]}"
+        password="${users[$password_index]}"
+        groups="${users[$groups_index]}"
+
+        if [[ "${groups}" == "none" ]]; then
+            arch-chroot "${root_mount}" "useradd" "-m" "-g" "users" "-G" "${groups}" "-s" "/bin/bash" "${username}"
+        else
+            arch-chroot "${root_mount}" "useradd" "-m" "-g" "users" "-s" "/bin/bash" "${username}"
+        fi
+
+        arch-chroot "${root_mount}" "passwd" "${username}" << chroot_commands
+${password}
+${password}
+chroot_commands
+    done
+}
+
+###################################################################################################
 # installs the basic packages to make the system
 #
 # Globals:
@@ -800,6 +876,8 @@ function system::install()
     system::generate_sudoers "${root_mount}"
 
     system::set_root_password "${root_mount}" "${config["root_password"]}"
+
+    system::create_users "${root_mount}" "${config["users"]}"
 
     # enable 32 bit reop on new install
     system::enable_multilib "${root_mount}"
