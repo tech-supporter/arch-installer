@@ -688,14 +688,16 @@ function config::add_user()
     local user="$1"
     local count
 
-    count=$(config::get_user_count)
+    # quick hack to remove any new line '\n' characters which mess the list up
+    user=(${user})
+    user="${user[@]}"
 
-    echo "${user}"
+    count=$(config::get_user_count)
 
     if [[ "${count}" == 0 ]]; then
         configuration["users"]="${user}"
     else
-        configuration["users"]="${configuration["users"]} ${user}"
+        configuration["users"]="${configuration["users"]}${user}"
     fi
 }
 

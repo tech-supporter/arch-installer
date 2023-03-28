@@ -787,7 +787,7 @@ function system::groups()
 function system::create_users()
 {
     local root_mount="$1"
-    local users="$2"
+    local users=($2)
     local count
     local username
     local password
