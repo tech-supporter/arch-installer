@@ -391,7 +391,7 @@ function system::generate_hosts()
 function system::set_timezone()
 {
     local root_mount="$1"
-    local timezone="$1"
+    local timezone="$2"
 
     arch-chroot "${root_mount}" "ln" "-s" "/usr/share/zoneinfo/${timezone}" "/etc/localtime"
     arch-chroot "${root_mount}" "hwclock" "--systohc" "--utc"
@@ -864,6 +864,8 @@ function system::install()
     system::generate_fstab "${root_mount}"
 
     system::set_locale "${root_mount}" "${config["locale"]}"
+
+    system::set_timezone "${root_mount}" "${config["timezone"]}"
 
     system::set_key_map "${root_mount}" "${config["key_map"]}"
 
