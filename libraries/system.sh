@@ -894,7 +894,9 @@ function system::install()
 
     system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${config["kernel"]}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
 
-    driver::install_gpu_driver "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
+    gpu_driver::install "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
 
     system::enable_services "${root_mount}" "${config["enable_ssh_server"]}"
+
+    desktop_environment::install "${root_mount}" "${config["desktop_environment"]}"
 }

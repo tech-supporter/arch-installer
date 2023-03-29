@@ -22,7 +22,8 @@ export -A configuration=(
     ["location"]=""                         # string descriptor in the machine-info
     ["install_unofficial_repositories"]=""  # install unofficial user repositories, true / false
     ["enable_ssh_server"]=""                # enable the ssh server after installing, true / false
-    ["users"]=""                            # space separated user list, passwords and additional groups, - is none [user P4ss - user2 g1,g2 pass]
+    ["users"]=""                            # space separated user list, passwords and additional groups
+    ["desktop_environment"]=""              # desktop environment E.I. KDE Plasma
 )
 
 ###################################################################################################
@@ -60,6 +61,7 @@ function config::load_defaults()
     configuration["kernel"]="linux"
     configuration["install_unofficial_repositories"]=false
     configuration["enable_ssh_server"]=true
+    configuration["desktop_environment"]="none"
 
     if [[ "${configuration["cpu_vendor"]}" == "unknown" ]]; then
         echo "Could not determine CPU vendor!"
@@ -164,7 +166,7 @@ function config::prompt_cpu_vendor()
 {
     local vendor
     local vendors=("Intel" "AMD")
-    local prompt="Select aCPU Vendor"
+    local prompt="Select a CPU Vendor"
 
     input::read_option "${prompt}" vendors
     vendor="${input_selection,,}"
@@ -928,6 +930,35 @@ function config::prompt_users()
 }
 
 ###################################################################################################
+# Prompt the user for a desktop environment
+#
+# Globals:
+#   configuration["desktop_environment"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_desktop_environment()
+{
+    local option
+    local options=("lxqt" "plasma" "xfce" "none")
+
+    input::read_option "Select a Desktop Environment" options
+    option="${input_selection}"
+
+    configuration["desktop_environment"]="${option}"
+
+    echo "Desktop Environment: ${configuration["desktop_environment"]}"
+}
+
+###################################################################################################
 # Main configuration selection menu
 #
 # Globals:
@@ -957,11 +988,11 @@ function config::show_menu()
     local spacing=0
     local spaces
     local settings=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
-                    "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Root Password" "Users"
+                    "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Desktop Environment" "Root Password" "Users"
                     "Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
     local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories" "enable_ssh_server"
-                   "key_map" "locale" "timezone" "computer_name" "location" "root_password" "users"
+                   "key_map" "locale" "timezone" "computer_name" "location" "desktop_environment" "root_password" "users"
                    "drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 

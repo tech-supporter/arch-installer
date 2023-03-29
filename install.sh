@@ -85,7 +85,9 @@ function install::main()
     # source libraries
     script_directory=$(install::get_script_directory)
     install::source_directory "${script_directory}/libraries/"
-    driver::source_gpu_driver_installers
+
+    gpu_driver::source_installers
+    desktop_environment::source_installers
 
     # select key mapping for installer and default for new install
     # pick the key map first as they might have issues entering a wifi password on the default mapping

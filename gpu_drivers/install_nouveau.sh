@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-driver::install_gpu_driver_nouveau()
+gpu_driver::install_nouveau()
 {
     local root_mount="$1"
     local uefi="$2"
