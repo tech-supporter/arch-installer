@@ -6,11 +6,23 @@ desktop_environment::install_plasma()
 
     echo "Installing Plasma Desktop enviorment with X11 and SDDM..."
 
-pacstrap -i "${root_mount}" "mesa" "xorg" "plasma" "sddm" << syslinux_install_commands
+pacstrap -i "${root_mount}" "mesa" "xorg" "plasma" "dolphin" "sddm" << syslinux_install_commands
 $(echo)
-y
-y
-y
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
 syslinux_install_commands
 
     arch-chroot "${root_mount}" "systemctl" "enable" "sddm.service"

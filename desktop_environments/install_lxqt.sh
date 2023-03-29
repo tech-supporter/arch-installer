@@ -8,9 +8,21 @@ desktop_environment::install_lxqt()
 
 pacstrap -i "${root_mount}" "mesa" "xorg" "lxqt" "sddm" << syslinux_install_commands
 $(echo)
-y
-y
-y
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
+$(echo)
 syslinux_install_commands
 
     arch-chroot "${root_mount}" "systemctl" "enable" "sddm.service"
