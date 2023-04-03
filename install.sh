@@ -89,6 +89,9 @@ function install::main()
     gpu_driver::source_installers
     desktop_environment::source_installers
 
+    # load the default settings
+    config::load_defaults
+
     # select key mapping for installer and default for new install
     # pick the key map first as they might have issues entering a wifi password on the default mapping
     config::prompt_key_map
@@ -96,13 +99,16 @@ function install::main()
     # connect to the internet
     network::setup
 
+    # now that we have internet access, we can install packages we need
+    system::install_dependencies
+
     # show configuration menu
     config::show_menu
 
     # preform the install with the given configuration
     system::install "/mnt" configuration
 
-    echo "Installation Complete!"
+    input::capture_dialog status status dialog --msgbox "Installation Complete!" 0 0
 }
 
 install::main

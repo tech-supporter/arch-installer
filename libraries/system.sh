@@ -94,6 +94,71 @@ function system::memory_size()
 }
 
 ###################################################################################################
+# Checks if a package is installed or not
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   The name of the package
+#
+# Output:
+#   true or false for package installed or not
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::package_installed()
+{
+    local package="$1"
+
+    pacman -Q "${package}"
+
+    if [[ "$?" == "0" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+###################################################################################################
+# Installs the installer's dependencies
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function system::install_dependencies()
+{
+
+    local packages=("git" "dialog")
+    local packages_to_install=()
+
+    for (( i = 0; i < "${#packages[@]}"; i++ )); do
+        if ! system::package_installed "${packages[i]}"; then
+            packages_to_install+=("${packages[i]}")
+        fi
+    done
+
+
+    if [[ "${#packages_to_install[@]}" > 0 ]]; then
+pacman -S "${packages_to_install[@]}" << install_commands
+$(echo)
+$(echo)
+$(echo)
+install_commands
+    fi
+}
+
+###################################################################################################
 # re-initialize arch linux key ring for the installer
 #
 # Globals:
@@ -422,6 +487,69 @@ function system::set_key_map()
 }
 
 ###################################################################################################
+# gets the available keymaps using 'localectl list-keymaps'
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::key_maps()
+{
+    localectl "list-keymaps"
+}
+
+###################################################################################################
+# gets the available keymaps using 'localectl list-keymaps'
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::timezones()
+{
+    timedatectl "list-timezones"
+}
+
+###################################################################################################
+# gets the available locales
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::locales()
+{
+    cat "/usr/share/i18n/SUPPORTED"
+}
+
+###################################################################################################
 # sets the key map of the installer system, list of keymaps is from 'localectl list-keymaps'
 #
 # Globals:
@@ -591,8 +719,8 @@ $(echo)
 $(echo)
 $(echo)
 $(echo)
-y
-y
+$(echo)
+$(echo)
 base_install_commands
 
 if $install_micro_code; then
@@ -603,8 +731,8 @@ $(echo)
 $(echo)
 $(echo)
 $(echo)
-y
-y
+$(echo)
+$(echo)
 micro_code_install_commands
 fi
 
