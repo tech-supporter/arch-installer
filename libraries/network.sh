@@ -95,7 +95,7 @@ function network::connect_to_wifi()
         clear
         iwctl station ${wifi_adaptor} scan # enable scanning
         iwctl station ${wifi_adaptor} get-networks
-        network_names=$(iwctl station ${wifi_adaptor} get-networks | awk '{if(NR > 4) print $1}' )
+        network_names=$(iwctl station ${wifi_adaptor} get-networks | awk '{if(NR > 4) print $2}' )
 
         # choose network
         wifi_network=$(input::read_autocomplete 'Choose network to connect to: ' "${network_names}")
