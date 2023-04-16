@@ -304,6 +304,7 @@ function input::read_yes_no()
 #
 # Arguments:
 #   string prompt
+#   variable to write the password to
 #
 # Output:
 #   the password entered
@@ -315,24 +316,62 @@ function input::read_yes_no()
 function input::read_password()
 {
     local prompt="$1"
-
-    local confirm
-    local password
+    local -n password_ref=$2
+    local new_password
     local confirm_password
+    local status
 
-    while [[ -z ${password} ]] || [[ -z ${confirm_password} ]] || [[ ${password} != ${confirm_password} ]]; do
-        read -s -p "${prompt}: " password
-        echo >&2
-        read -s -p "Confirm password: " confirm_password
-        echo >&2
-        if [[ -z ${password} ]] || [[ -z ${confirm_password} ]]; then
-            echo "Password cannot be empty!" >&2
-        elif ! [[ ${password} = ${confirm_password} ]]; then
-            echo "Passwords do not match!" >&2
+    while [[ -z "${new_password}" ]] || [[ -z "${confirm_password}" ]] || [[ "${new_password}" != "${confirm_password}" ]]; do
+        input::capture_dialog status new_password dialog --no-cancel --insecure --passwordbox "${prompt}" 0 0
+
+        input::capture_dialog status confirm_password dialog --no-cancel --insecure --passwordbox "Confirm Password" 0 0
+
+        if [[ -z "${new_password}" ]] || [[ -z "${confirm_password}" ]]; then
+            input::capture_dialog status status dialog --msgbox "Password cannot be empty!" 0 0
+        elif ! [[ "${new_password}" = "${confirm_password}" ]]; then
+            input::capture_dialog status status dialog --msgbox "Passwords do not match!" 0 0
         fi
     done
+    password_ref="${new_password}"
+}
 
-    echo "${password}"
+###################################################################################################
+# captures the output of dialog into a supplied variable
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   variable to write exit code to
+#   variable to write output to
+#   dialog command you wish to run
+#   zero to many arguments to that command
+#
+# Output:
+#   writes the captured output to the supplied variable
+#
+# Source:
+#   https://stackoverflow.com/questions/962255/how-to-store-standard-error-in-a-variable
+#   https://askubuntu.com/questions/491509/how-to-get-dialog-box-input-directed-to-a-variable
+#
+###################################################################################################
+input::capture_dialog()
+{
+    local -n exitcode_ref=$1
+    local -n result_ref=$2
+
+    if [ "$#" -lt 3 ]; then
+        echo "Usage: capture <varname> <returned status> <command> [arg ...]"
+        return 1
+    fi
+
+    shift
+    shift
+
+    exec 3>&1
+    result_ref=$("$@" 2>&1 1>&3)
+    exitcode_ref="$?"
+    exec 3>&-
 }
 
 ###################################################################################################

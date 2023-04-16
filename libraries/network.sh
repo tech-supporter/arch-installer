@@ -71,6 +71,7 @@ function network::connect_to_wifi()
     local connection_error="failure"
 
     # variables
+    local status
     local state
     local default_wifi_adaptor
     local wifi_adaptor
@@ -79,83 +80,76 @@ function network::connect_to_wifi()
     local confirm
     local wifi_password
     local wifi_connect_response
+    local options
+    local percent
 
     state='network'
     while true; do
-    case ${state} in
-        'network')
-        # get device
-        default_wifi_adaptor=$(iw dev | awk '$1=="Interface"{print $2}')
-        wifi_adaptor=${default_wifi_adaptor}
+        case "${state}" in
+            'network')
+            # get device
+            default_wifi_adaptor=$(iw dev | awk '$1=="Interface"{print $2}')
+            wifi_adaptor="${default_wifi_adaptor}"
 
-        # if connected to a network disconnect to start over
-        iwctl station ${wifi_adaptor} disconnect
+            # if connected to a network disconnect to start over
+            iwctl station "${wifi_adaptor}" disconnect
 
-        # get networks
-        clear
-        iwctl station ${wifi_adaptor} scan # enable scanning
-        iwctl station ${wifi_adaptor} get-networks
-        network_names=$(iwctl station ${wifi_adaptor} get-networks | awk '{if(NR > 4) print $2}' )
+            # get networks
+            iwctl station "${wifi_adaptor}" scan # enable scanning
 
-        # choose network
-        wifi_network=$(input::read_autocomplete 'Choose network to connect to: ' "${network_names}")
+            readarray -t network_names < <(iwctl station "${wifi_adaptor}" get-networks | tail -n +5 | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | sed 's/^[[:space:]]*//g' | awk -F" {2}" '{print $1}' | head -n -1)
 
-        # check if network is in list
-        if [[ ${network_names} == *${wifi_network}* ]]; then
-            state='password'
-        else
-            read -p "That network (${wifi_network}) was not found. Do you want to choose a different network? (y/n)" confirm
-            if [ -z ${confirm} ] || [ ${confirm} = 'y' ]; then
-            echo ""
-            else
-            state='password'
+            options=()
+            for (( i = 0; i < "${#network_names[@]}"; i++ )); do
+                options+=("${network_names[i]}" "")
+            done
+
+            # choose network
+        input::capture_dialog status wifi_network whiptail --noitem --cancel-button "re-scan" --menu "Select a Wifi Network" 0 0 0 "${options[@]}"
+
+            # check if a network was selected
+            if [[ "${status}" == "0" ]]; then
+                state='password'
             fi
-        fi
-        ;;
+            ;;
 
-        'password')
-        read -s -p "Enter network password or nothing to choose different network: " wifi_password
-        if [ -z ${wifi_password} ]; then
-            state='network'
-        else
-            state='connect'
-        fi
-        ;;
+            'password')
 
-        'connect')
-        echo -n "Connecting to network."
-        wifi_connect_response=$(iwctl --passphrase ${wifi_password} station ${wifi_adaptor} connect ${wifi_network} 2>&1)
-        for ((i = 0 ; i < 2 ; i++)); do
-            sleep 1
-            echo -n "."
-        done
-        echo ""
+            input::capture_dialog status wifi_password whiptail --passwordbox "Enter Wifi Password" 8 30
+            if [ -z ${wifi_password} ]; then
+                state='network'
+            else
+                state='connect'
+            fi
+            ;;
 
-        if [[ ${wifi_connect_response:0:${#invalid_name}} == ${invalid_name} ]]; then
-            echo "Invalid network name."
-            state='network'
-        elif [[ ${wifi_connect_response:0:${#incorrect_password}} == ${incorrect_password} ]]; then
-            echo "Invalid network password."
-            state='password'
-        else
-            if ! network::online; then
-                echo "Connection failed."
+            'connect')
+            wifi_connect_response=$(iwctl --passphrase "${wifi_password}" station "${wifi_adaptor}" connect "${wifi_network}" 2>&1)
+
+            if [[ "${wifi_connect_response:0:${#invalid_name}}" == "${invalid_name}" ]]; then
+            input::capture_dialog status confirm whiptail --msgbox "Invalid SSID (Network Name)" 0 0
+                state='network'
+            elif [[ "${wifi_connect_response:0:${#incorrect_password}}" == "${incorrect_password}" ]]; then
+                input::capture_dialog status confirm whiptail --msgbox "Invalid Password" 0 0
                 state='password'
             else
-                state='connected'
+                if ! network::online; then
+                    input::capture_dialog status confirm whiptail --msgbox "Connection failed" 0 0
+                    state='password'
+                else
+                    state='connected'
+                fi
             fi
-        fi
-        ;;
+            ;;
 
-        'connected')
-        echo "Connected to network."
-        break
-        ;;
+            'connected')
+            break
+            ;;
 
-        *)
-        state='network'
-        ;;
-    esac
+            *)
+            state='network'
+            ;;
+        esac
     done
 }
 
@@ -176,15 +170,15 @@ function network::connect_to_wifi()
 ###################################################################################################
 function network::setup()
 {
-    local confirm
+    local status
+    local output
 
-    echo "Checking for internet access"
     while ! network::online; do
-        input::read_yes_no "No access to internet, connect to a wifi network?"
-        if [ $? -eq 0 ]; then
+        input::capture_dialog status output whiptail --yesno "No access to internet, connect to a wifi network?" 0 0
+        if [[ "${status}" == "0" ]]; then
             network::connect_to_wifi
         fi
     done
-    echo "Connected to the internet"
+    input::capture_dialog status output whiptail --msgbox "Connected to the Internet" 0 0
     echo
 }

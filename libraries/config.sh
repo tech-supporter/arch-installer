@@ -22,7 +22,7 @@ export -A configuration=(
     ["location"]=""                         # string descriptor in the machine-info
     ["install_unofficial_repositories"]=""  # install unofficial user repositories, true / false
     ["enable_ssh_server"]=""                # enable the ssh server after installing, true / false
-    ["users"]=""                            # space separated user list, passwords and additional groups
+    ["users"]=""                            # space separated user list: username, password and additional groups
     ["desktop_environment"]=""              # desktop environment E.I. KDE Plasma
 )
 
@@ -55,6 +55,7 @@ function config::load_defaults()
     configuration["computer_name"]="Arch Linux Computer"
     configuration["location"]="Server Room"
     configuration["locale"]="en_US.UTF-8 UTF-8"
+    configuration["key_map"]="us"
     configuration["timezone"]="America/Chicago"
     configuration["root_partition_size"]=64
     configuration["swap_partition_size"]=$(system::memory_size)
@@ -86,28 +87,27 @@ function config::load_defaults()
 ###################################################################################################
 function config::prompt_uefi()
 {
+    local status
     local option
     local options=("on" "off")
 
     if system::uefi; then
         configuration["uefi"]=true
 
-        input::read_option "Set UEFI Mode" options
-        option="${input_selection}"
+        input::capture_dialog status option dialog --yesno "Enable UEFI" 0 0
 
-        if [[ "${option}" == "on" ]]; then
+        if [[ "${status}" == "0" ]]; then
             configuration["uefi"]=true
-            echo "UEFI Mode is Enabled"
         else
             configuration["uefi"]=false
-            echo "UEFI Mode is Disabled"
         fi
 
     else
         configuration["uefi"]=false
-        echo "UEFI Mode is Disabled"
-        input::read_yes_no "Reboot for BIOS menu?"
-        if [ $? -eq 0 ]; then
+
+        input::capture_dialog status option dialog --yesno "Booted in BIOS Mode, Reboot for BIOS Menu?" 0 0
+
+        if [[ "${status}" == "0" ]]; then
             reboot
         fi
     fi
@@ -131,13 +131,13 @@ function config::prompt_uefi()
 ###################################################################################################
 function config::prompt_install_micro_code()
 {
+    local status
     local option
-    local options=("yes" "no")
+    local prompt="Install CPU Micro Code"
 
-    input::read_option "Install CPU Micro Code?" options
-    option="${input_selection}"
+    input::capture_dialog status option dialog --yesno "${prompt}" 0 0
 
-    if [[ "${option}" == "yes" ]]; then
+    if [[ "${status}" == "0" ]]; then
         configuration["install_micro_code"]=true
     else
         configuration["install_micro_code"]=false
@@ -164,17 +164,23 @@ function config::prompt_install_micro_code()
 ###################################################################################################
 function config::prompt_cpu_vendor()
 {
-    local vendor
-    local vendors=("Intel" "AMD")
+    local status
+    local options=()
+    local vendor="${configuration["cpu_vendor"]}"
+    local vendors=("intel" "amd")
     local prompt="Select a CPU Vendor"
 
-    input::read_option "${prompt}" vendors
-    vendor="${input_selection,,}"
+    for index in "${!vendors[@]}"; do
+        if [[ "${vendors[index]}" == "${vendor}" ]]; then
+            options+=("${vendors[index]}" "on")
+        else
+            options+=("${vendors[index]}" "off")
+        fi
+    done
+
+    input::capture_dialog status vendor dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
     configuration["cpu_vendor"]="${vendor}"
-
-    clear
-    echo "CPU Vendor: ${vendor}"
 }
 
 ###################################################################################################
@@ -197,18 +203,23 @@ function config::prompt_cpu_vendor()
 ###################################################################################################
 function config::prompt_gpu_driver()
 {
-    local drivers
-    local driver
+    local status
+    local options=()
+    local gpu_driver="${configuration["gpu_driver"]}"
+    local gpu_drivers=("amd" "nvidia" "nouveau" "none")
+    local prompt="Select a GPU Driver"
 
-    drivers=("amd" "none" "nouveau" "nvidia")
+    for index in "${!gpu_drivers[@]}"; do # for each index in the list
+        if [[ "${gpu_drivers[index]}" == "${gpu_driver}" ]]; then
+            options+=("${gpu_drivers[index]}" "on")
+        else
+            options+=("${gpu_drivers[index]}" "off")
+        fi
+    done
 
-    input::read_option "Select a GPU driver " drivers
-    driver="${input_selection}"
+    input::capture_dialog status gpu_driver dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
-    configuration["gpu_driver"]="${driver}"
-
-    clear
-    echo "GPU Driver: ${driver}"
+    configuration["gpu_driver"]="${gpu_driver}"
 }
 
 ###################################################################################################
@@ -228,19 +239,22 @@ function config::prompt_gpu_driver()
 ###################################################################################################
 function config::prompt_computer_name()
 {
-    local computer_name
-    local host_name
-    local validation_functions_array
-    local validation_errors_array
+    local status
+    local computer_name="${configuration["computer_name"]}"
+    local prompt="Enter a name for this computer"
+    local error="Computer name must be at least 1 character and can only contain letters, numbers, underscores (_) and hyphens (-)"
 
-    validation_functions_array=('input::validate_computer_name')
-    validation_errors_array=('Computer name must be at least 1 character and can only contain letters, numbers, underscores (_) and hyphens (-)')
-    computer_name=$(input::read_validated "Enter a name for this computer" validation_functions_array validation_errors_array)
-    #host_name=$(echo ${computer_name} | tr '[:upper:]' '[:lower:]' | tr '_ ' '-' | tr -dc '[:alnum:]-')
+    while true; do
+        input::capture_dialog status computer_name dialog --no-cancel --inputbox "${prompt}" 0 0 "${computer_name}"
+
+        if input::validate_computer_name "${computer_name}"; then
+            break
+        else
+            input::capture_dialog status status dialog --no-cancel --msgbox "${error}" 0 0
+        fi
+    done
 
     configuration["computer_name"]="${computer_name}"
-
-    echo "Computer Name: ${computer_name}"
 }
 
 ###################################################################################################
@@ -248,7 +262,6 @@ function config::prompt_computer_name()
 #
 # Globals:
 #   configuration["kernel"]
-#   input_selection
 #
 # Arguments:
 #   N/A
@@ -261,18 +274,25 @@ function config::prompt_computer_name()
 ###################################################################################################
 function config::prompt_kernel()
 {
+    local status
+    local kernel="${configuration["kernel"]}"
     local kernels
-    local kernel
-
+    local options=()
+    local prompt="Select a Linux Kernel"
     kernels=("linux" "linux-lts" "linux-zen" "linux-hardened" "linux-rt" "linux-rt-lts")
 
-    input::read_option "Select a Linux Kernel Varient " kernels
-    kernel="${input_selection}"
+    for index in "${!kernels[@]}"; do
+        options+=("${kernels[index]}")
+        if [[ "${kernels[index]}" == "${kernel}" ]]; then
+            options+=("on")
+        else
+            options+=("off")
+        fi
+    done
+
+    input::capture_dialog status kernel dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
     configuration["kernel"]="${kernel}"
-
-    clear
-    echo "Linux Kernel: ${kernel}"
 }
 
 ###################################################################################################
@@ -295,22 +315,31 @@ function config::prompt_kernel()
 ###################################################################################################
 function config::prompt_drive()
 {
-    local drives
-    local options
-    local drive
-    local index
+    local status
+    local selection
+    local options=()
+
+    local drive="${configuration["drive"]}"
+    local drives=()
+    local sizes=()
+
+    local prompt="Select an Install Drive"
 
     readarray -t drives < <(lsblk | grep disk | awk '{print $1}')
-    readarray -t options < <(lsblk | grep disk | awk '{print $1 " " $4}')
+    readarray -t sizes < <(lsblk | grep disk | awk '{print $4}')
 
-    input::read_option "Select a Drive for Install " options true
-    index="${input_selection}"
-    drive="${drives[${index}]}"
+    for (( i = 0; i < "${#drives[@]}"; i++ )); do
+        options+=("${drives[i]}" "${sizes[i]}")
+        if [[ "${drives[i]}" == "${drive}" ]]; then
+             options+=("on")
+        else
+             options+=("off")
+        fi
+    done
+
+    input::capture_dialog status drive dialog --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
     configuration["drive"]="${drive}"
-
-    clear
-    echo "Install Drive: ${drive}"
 }
 
 ###################################################################################################
@@ -330,17 +359,22 @@ function config::prompt_drive()
 ###################################################################################################
 function config::prompt_root_partition_size()
 {
-    local root_partition_size
-    local validation_functions_array
-    local validation_errors_array
+    local status
+    local root_partition_size="${configuration["root_partition_size"]}"
+    local prompt="Enter the Root Partition Size in GiB"
+    local error="Root partition size must a whole number"
 
-    validation_functions_array=('input::validate_whole_number')
-    validation_errors_array=('Root partition size must a whole number')
-    root_partition_size=$(input::read_validated "Enter the Root Partition Size in GiB" validation_functions_array validation_errors_array "64")
+    while true; do
+        input::capture_dialog status root_partition_size dialog --no-cancel --inputbox "${prompt}" 0 0 "${root_partition_size}"
+
+        if input::validate_whole_number "${root_partition_size}"; then
+            break
+        else
+            input::capture_dialog status status dialog --msgbox "${error}" 0 0
+        fi
+    done
 
     configuration["root_partition_size"]="${root_partition_size}"
-
-    echo "Root Partition Size: ${root_partition_size}Gib"
 }
 
 ###################################################################################################
@@ -360,22 +394,22 @@ function config::prompt_root_partition_size()
 ###################################################################################################
 function config::prompt_swap_partition_size()
 {
-    local swap_partition_size
-    local validation_functions_array
-    local validation_errors_array
-    local default_swap_size
-
+    local status
+    local swap_partition_size="${configuration["swap_partition_size"]}"
     local prompt="Enter the Swap Partition Size in GiB"
+    local error="Swap partition size must a whole number"
 
-    default_swap_size=$(system::memory_size)
+    while true; do
+        input::capture_dialog status swap_partition_size dialog --no-cancel --inputbox "${prompt}" 0 0 "${swap_partition_size}"
 
-    validation_functions_array=('input::validate_whole_number')
-    validation_errors_array=('Swap partition size must a whole number')
-    swap_partition_size=$(input::read_validated "${prompt}" validation_functions_array validation_errors_array "${default_swap_size}")
+        if input::validate_whole_number "${swap_partition_size}"; then
+            break
+        else
+            input::capture_dialog status status dialog --msgbox "${error}" 0 0
+        fi
+    done
 
     configuration["swap_partition_size"]="${swap_partition_size}"
-
-    echo "Swap Partition Size: ${swap_partition_size}Gib"
 }
 
 ###################################################################################################
@@ -397,19 +431,25 @@ function config::prompt_swap_partition_size()
 ###################################################################################################
 function config::prompt_timezone()
 {
-    local timezone
+    local status
+    local timezone="${configuration["timezone"]}"
     local timezones
+    local options=()
     local prompt="Select a Time Zone"
 
-    readarray -t timezones < <(timedatectl list-timezones)
+    readarray -t timezones < <(system::timezones)
 
-    input::read_option "${prompt}" timezones
-    timezone="${input_selection}"
+    for index in "${!timezones[@]}"; do # for each index in the list
+        if [[ "${timezones[index]}" == "${timezone}" ]]; then
+            options+=("${timezones[index]}" "on")
+        else
+            options+=("${timezones[index]}" "off")
+        fi
+    done
+
+    input::capture_dialog status timezone dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
     configuration["timezone"]="${timezone}"
-
-    clear
-    echo "Time Zone: ${timezone}"
 }
 
 ###################################################################################################
@@ -430,22 +470,34 @@ function config::prompt_timezone()
 ###################################################################################################
 function config::prompt_key_map()
 {
-    local key_map
+    local key_map="${configuration["key_map"]}"
     local key_maps
+    local status
+    local options=()
     local prompt="Select a Keyboard Mapping"
 
-    readarray -t key_maps < <(localectl list-keymaps)
+    readarray -t key_maps < <(system::key_maps)
 
-    input::read_option "${prompt}" key_maps
-    key_map="${input_selection}"
+    for index in "${!key_maps[@]}"; do # for each index in the list
+        options+=("${key_maps[index]}")
+        if [[ "${key_maps[index]}" == "${key_map}" ]]; then
+            options+=("on")
+        else
+            options+=("off")
+        fi
+    done
+
+    if system::package_installed "dialog"; then
+        input::capture_dialog status key_map dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
+    else
+        # dialog is not installed yet
+        input::capture_dialog status key_map whiptail --noitem --nocancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
+    fi
 
     configuration["key_map"]="${key_map}"
 
     # load in the selected key map right away
     system::load_key_map "${key_map}"
-
-    clear
-    echo "Keyboard Mapping: ${key_map}"
 }
 
 ###################################################################################################
@@ -466,26 +518,32 @@ function config::prompt_key_map()
 ###################################################################################################
 function config::prompt_locale()
 {
-    local locale
+    local locale="${configuration["locale"]}"
     local locales
+    local status
+    local options=()
     local prompt="Select a Locale and Character Set"
 
-    readarray -t locales < <(cat /usr/share/i18n/SUPPORTED)
+    readarray -t locales < <(system::locales)
 
-    input::read_option "${prompt}" locales
-    locale="${input_selection}"
+    for index in "${!locales[@]}"; do # for each index in the list
+        if [[ "${locales[index]}" == "${locale}" ]]; then
+            options+=("${locales[index]}" "on")
+        else
+            options+=("${locales[index]}" "off")
+        fi
+    done
+
+    input::capture_dialog status locale dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
     configuration["locale"]="${locale}"
-
-    clear
-    echo "Locale and Character Set: ${locale}"
 }
 
 ###################################################################################################
 # Prompt the user to select their locale and character set information
 #
 # Globals:
-#   configuration["locale"]
+#   configuration["location"]
 #
 # Arguments:
 #   N/A
@@ -499,15 +557,13 @@ function config::prompt_locale()
 ###################################################################################################
 function config::prompt_location()
 {
-    local location
-    local prompt="Enter a Location for the Machine: "
+    local status
+    local location="${configuration["location"]}"
+    local prompt="Enter a Location for the Computer"
 
-    read -p "${prompt}" location
+    input::capture_dialog status location dialog --inputbox "${prompt}" 0 0 "${location}"
 
     configuration["location"]="${location}"
-
-    clear
-    echo "Location: ${location}"
 }
 
 ###################################################################################################
@@ -527,10 +583,11 @@ function config::prompt_location()
 ###################################################################################################
 function config::prompt_root_password()
 {
-    configuration["root_password"]="$(input::read_password "Enter a Root Password")"
+    local password
 
-    clear
-    echo "Root Password Set"
+    input::read_password "Enter a Root Password" password
+
+    configuration["root_password"]="${password}"
 }
 
 ###################################################################################################
@@ -553,23 +610,18 @@ function config::prompt_root_password()
 ###################################################################################################
 function config::prompt_install_unofficial_repositories()
 {
-    local options
+    local status
     local option
+    local repos=("archzfs")
+    local prompt="Install Unofficial User Repositories? Repos: ${repos[@]}"
 
-    options=("yes" "no")
-    repos=("archzfs")
+    input::capture_dialog status option dialog --yesno "${prompt}" 0 0
 
-    input::read_option "Install Unofficial User Repositories? Repos: ${repos[@]}" options
-    option="${input_selection}"
-
-    if [[ "${option}" == "yes" ]]; then
+    if [[ "${status}" == "0" ]]; then
         configuration["install_unofficial_repositories"]=true
     else
         configuration["install_unofficial_repositories"]=false
     fi
-
-    clear
-    echo "Install Unofficial User Repositories: ${option}"
 }
 
 ###################################################################################################
@@ -590,19 +642,17 @@ function config::prompt_install_unofficial_repositories()
 ###################################################################################################
 function config::prompt_enable_ssh_server()
 {
+    local status
     local option
-    local options=("yes" "no")
+    local prompt="Enable SSH Server"
 
-    input::read_option "Enable SSH Server?" options
-    option="${input_selection}"
+    input::capture_dialog status option dialog --yesno "${prompt}" 0 0
 
-    if [[ "${option}" == "yes" ]]; then
+    if [[ "${status}" == "0" ]]; then
         configuration["enable_ssh_server"]=true
     else
         configuration["enable_ssh_server"]=false
     fi
-
-    echo "Enable SSH Server: ${configuration["enable_ssh_server"]}"
 }
 
 ###################################################################################################
@@ -697,6 +747,48 @@ function config::add_user()
 }
 
 ###################################################################################################
+# Adds a user to the configuration
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   space delimited user info, username, password additional groups
+#
+# Output:
+#   the count of users
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::edit_user()
+{
+    local index="$1"
+    local user=("$2")
+    local index_user
+    local new_users=()
+    local count
+
+    ((username_index=index*3))
+    ((username_index=username_index+3))
+
+    users=("${configuration["users"]}")
+    count=$(config::get_user_count)
+
+    for (( i = 0; i < "${count}"; i++ )); do
+        if [[ "${i}" == "${index}" ]]; then
+            new_users+=("${user[0]}" "${user[1]}" "${user[2]}")
+        else
+            index_user=($(config::get_user "${i}"))
+            new_users+=("${index_user[0]}" "${index_user[1]}" "${index_user[2]}")
+        fi
+    done
+
+    configuration["users"]="${new_users[@]}"
+}
+
+###################################################################################################
 # removes a user to the configuration
 #
 # Globals:
@@ -754,7 +846,7 @@ function config::remove_user()
 #   N/A
 #
 ###################################################################################################
-function config::get_user_names()
+function config::get_usernames()
 {
     local user
     local users
@@ -774,6 +866,38 @@ function config::get_user_names()
 }
 
 ###################################################################################################
+# Checks if a username is already in use
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   The username to check for
+#
+# Output:
+#   true if username exists, false if not
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::username_exists()
+{
+    local username="$1"
+    local usernames
+
+    usernames=($(config::get_usernames))
+
+    for (( i = 0; i < "${#usernames[@]}"; i++ )); do
+        if [[ "${username}" == "${usernames[i]}" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+###################################################################################################
 # prompt the user to select user groups
 #
 # Globals:
@@ -789,54 +913,51 @@ function config::get_user_names()
 #   N/A
 #
 ###################################################################################################
-function config::prompt_groups()
+function config::prompt_user_groups()
 {
-    local groups
-    local group_selection
-    local group_text
+    local -n group_text_ref=$1
+    local group_text="${group_text_ref}"
+    local working_groups
+    local selected_groups=()
     local option_index
     local options
+    local selected
+    local status
+    local prompt="Select Groups"
 
-    groups=($(system::groups))
-    for ((i = 0; i < ${#groups[@]}; i++)); do
-        group_selection[i]="0"
-    done
+    working_groups=($(system::groups))
+    options=()
 
-    while true; do
-        options=()
+    IFS=',' read -ra selected_groups <<< "${group_text}"
 
-        for ((i = 0; i < ${#groups[@]}; i++)); do
-            if [[ "${group_selection[i]}" == "1" ]]; then
-                options[i]="[${groups[i]}]"
-            else
-                options[i]="${groups[i]}"
+    for (( i = 0; i < "${#working_groups[@]}"; i++ )); do
+        options+=("${working_groups[i]}")
+        selected=false
+
+        for (( j = 0; j < "${#selected_groups[@]}"; j++ )); do
+            if [[ "${working_groups[i]}" == "${selected_groups[j]}" ]]; then
+                selected=true
+                break 1
             fi
         done
 
-        options[${#options[@]}]="Exit"
-
-        input::read_option "Select Groups" options true "${option_index}"
-        option_index="${input_selection}"
-
-        if [[ "${options["${option_index}"]}" == "Exit" ]]; then
-            break
+        if $selected; then
+            options+=("on")
         else
-            if [[ "${group_selection["${option_index}"]}" == "0" ]]; then
-                group_selection["${option_index}"]="1"
-            else
-                group_selection["${option_index}"]="0"
-            fi
+            options+=("off")
         fi
     done
 
+    input::capture_dialog status selected_groups dialog --no-cancel --no-items --checklist "${prompt}" 0 0 0 "${options[@]}"
+
+    IFS=' ' read -ra selected_groups <<< "${selected_groups}"
+
     group_text=""
-    for ((i = 0; i < ${#groups[@]}; i++)); do
-        if [[ "${group_selection[i]}" == "1" ]]; then
-            if [[ -z "${group_text}" ]]; then
-                group_text+="${groups[i]}"
-            else
-                group_text+=",${groups[i]}"
-            fi
+    for ((i = 0; i < "${#selected_groups[@]}"; i++)); do
+        if [[ -z "${group_text}" ]]; then
+            group_text+="${selected_groups[i]}"
+        else
+            group_text+=",${selected_groups[i]}"
         fi
     done
 
@@ -844,7 +965,78 @@ function config::prompt_groups()
         group_text="-"
     fi
 
-    echo "${group_text}"
+    group_text_ref="${group_text}"
+}
+
+###################################################################################################
+# prompt the user for a username
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+# TODO:
+#   Keep the user from entering two or more users with the same username
+###################################################################################################
+function config::prompt_user_username()
+{
+    local -n username_ref=$1
+    local status
+    local working_username="${username_ref}"
+    local prompt="Enter a Username"
+    local taken_error="Username is already in use"
+    local invalid_error="Username must be at least 1 character and can only contain letters, numbers, underscores (_) and hyphens (-)"
+
+    while true; do
+        input::capture_dialog status working_username dialog --no-cancel --inputbox "${prompt}" 0 0 "${working_username}"
+
+        if config::username_exists "${working_username}" && [[ "${working_username}" != "${username_ref}" ]]; then
+            input::capture_dialog status status dialog --no-cancel --msgbox "${taken_error}" 0 0
+        elif ! input::validate_computer_name "${working_username}"; then
+            input::capture_dialog status status dialog --no-cancel --msgbox "${invalid_error}" 0 0
+        else
+            break 1
+        fi
+    done
+
+    username_ref="${working_username}"
+}
+
+###################################################################################################
+# prompt the user for new user details
+#
+# Globals:
+#   configuration["users"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+# TODO:
+#   instead of adding a new user and then editing it, just bring up the menu to edit with blanks
+###################################################################################################
+function config::prompt_add_user()
+{
+    local count
+
+    count=$(config::get_user_count)
+
+    config::add_user "username password -"
+
+    config::prompt_edit_user "${count}"
 }
 
 ###################################################################################################
@@ -865,27 +1057,55 @@ function config::prompt_groups()
 # TODO:
 #   Keep the user from entering two or more users with the same username
 ###################################################################################################
-function config::prompt_add_user()
+function config::prompt_edit_user()
 {
+    local index="$1"
+    local status
+    local user
+    local usernames
+    local pass
+    local options
+    local selection
     local username
     local password
     local groups
+    local prompt="Select a Value to Edit"
 
-    local validate_username
-    local username_errors
+    while true; do
+        user=($(config::get_user "${index}"))
 
-    clear
-    validate_username=('input::validate_computer_name')
-    username_errors=('Username must be at least 1 character and can only contain letters, numbers, underscores (_) and hyphens (-)')
-    username=$(input::read_validated "Enter a Username" validate_username username_errors)
+        username="${user[0]}"
+        password="${user[1]}"
+        groups="${user[2]}"
 
-    clear
-    password=$(input::read_password "Enter a Password")
+        if [[ "${groups}" == "-" ]]; then
+            groups=""
+        fi
 
-    clear
-    groups="$(config::prompt_groups)"
+        pass="$(printf "%${#password}s\n" | tr ' ' '*')"
+        options=("Username" "${username}" "Password" "${pass}" "Groups" "${groups}" "Delete" "" )
 
-    config::add_user "${username} ${password} ${groups}"
+        input::capture_dialog status selection dialog --ok-label "Edit" --cancel-label "Exit" --menu "${prompt}" 0 0 0 "${options[@]}"
+
+        if [[ "${selection}" == "Username" ]]; then
+            config::prompt_user_username username
+        elif [[ "${selection}" == "Password" ]]; then
+            input::read_password "Enter Password" password
+        elif [[ "${selection}" == "Groups" ]]; then
+            config::prompt_user_groups groups
+        elif [[ "${selection}" == "Delete" ]]; then
+            config::remove_user "${index}"
+            break 1
+        else
+            break 1
+        fi
+
+        if [[ "${groups}" == "" ]]; then
+            groups="-"
+        fi
+
+        config::edit_user "${index}" "${username} ${password} ${groups}"
+    done
 }
 
 ###################################################################################################
@@ -903,28 +1123,34 @@ function config::prompt_add_user()
 # Source:
 #   N/A
 #
-# TODO:
-#   Allow the user to edit user definitions and delete them
 ###################################################################################################
 function config::prompt_users()
 {
-    local option_index
+    local selection
+    local index
+    local usernames
     local options
+    local user
+    local prompt="Select a User to Edit or Add a New User"
 
     while true; do
-        options=($(config::get_user_names))
-        options[${#options[@]}]="Add User"
-        options[${#options[@]}]="Exit"
+        usernames=($(config::get_usernames))
 
-        input::read_option "Select a User to Delete or Add a User" options true
-        option_index="${input_selection}"
+        options=($(config::get_usernames))
+        options+=("Add User")
 
-        if [[ "${options["${option_index}"]}" == "Add User" ]]; then
+        input::capture_dialog status selection dialog --ok-label "Edit" --cancel-label "Exit" --noitems --menu "${prompt}" 0 0 0 "${options[@]}"
+
+        if [[ "${selection}" == "Add User" ]]; then
             config::prompt_add_user
-        elif [[ "${options["${option_index}"]}" == "Exit" ]]; then
+        elif [[ "${selection}" == "" ]]; then
             break
         else
-            config::remove_user "${option_index}"
+            for (( i = 0; i < "${#usernames[@]}"; i++ )); do
+                if [[ "${selection}" == "${usernames[i]}" ]]; then
+                    config::prompt_edit_user "${i}"
+                fi
+            done
         fi
     done
 }
@@ -947,15 +1173,23 @@ function config::prompt_users()
 ###################################################################################################
 function config::prompt_desktop_environment()
 {
-    local option
-    local options=("lxqt" "plasma" "xfce" "none")
+    local status
+    local desktop_environment=${configuration["desktop_environment"]}
+    local desktop_environments=("lxqt" "plasma" "xfce" "none")
+    local options=()
+    local prompt="Select a Desktop Environment"
 
-    input::read_option "Select a Desktop Environment" options
-    option="${input_selection}"
+    for index in "${!desktop_environments[@]}"; do # for each index in the list
+        if [[ "${desktop_environments[index]}" == "${desktop_environment}" ]]; then
+            options+=("${desktop_environments[index]}" "on")
+        else
+            options+=("${desktop_environments[index]}" "off")
+        fi
+    done
 
-    configuration["desktop_environment"]="${option}"
+    input::capture_dialog status desktop_environment dialog --no-items --no-cancel --radiolist "${prompt}" 0 0 0 "${options[@]}"
 
-    echo "Desktop Environment: ${configuration["desktop_environment"]}"
+    configuration["desktop_environment"]="${desktop_environment}"
 }
 
 ###################################################################################################
@@ -973,21 +1207,18 @@ function config::prompt_desktop_environment()
 # Source:
 #   N/A
 #
+# TODO:
+#   Add option to export/import configurations to/from files
 ###################################################################################################
 function config::show_menu()
 {
     local selection
-    local index=0
     local options
-    local prompt="Select a setting to configure"
+    local prompt="Select a Setting to Configure"
     local prompt_function
-    local key
     local value
     local length=0
-    local max_length=0
-    local spacing=0
-    local spaces
-    local settings=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
+    local labels=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
                     "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Desktop Environment" "Root Password" "Users"
                     "Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
@@ -996,80 +1227,59 @@ function config::show_menu()
                    "drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 
-    config::load_defaults
-
     while true; do
+
+        # add in the values of the configuration as "items" in the dialog
         options=()
-        for ((i = 0; i < ${#settings[@]} ; i++)); do
-            options[i]="${settings[i]}"
-        done
-
-        # find the length of the longest option
-        for ((i = 0; i < ${#options[@]} ; i++)); do
-            value="${options[i]}"
-            if [[ "${max_length}" -lt "${#value}" ]]; then
-                max_length="${#value}"
-            fi
-        done
-
-        # make all options the same length
-        for ((i = 0; i < ${#options[@]} ; i++)); do
-            key="${options[i]}"
-            length=${#key}
-            ((spacing=max_length-length))
-            spaces=$(printf '%*s' "${spacing}")
-            options[i]="${spaces}${options[i]}: "
-        done
-
-        # add the current configuration values to the ends of the options
-        for ((i = 0; i < ${#options[@]} ; i++)); do
+        for ((i = 0; i < ${#labels[@]} ; i++)); do
+            options+=("${labels[i]}")
             if [[ "${prompts[i]}" == "root_password" ]]; then
-                value=${configuration[${prompts[i]}]}
-                options[i]="${options[i]}$(printf "%${#value}s\n" | tr ' ' '*')"
+                value="${configuration["${prompts[i]}"]}"
+                options+=("$(printf "%${#value}s\n" | tr ' ' '*')")
             elif [[ "${prompts[i]}" == "root_partition_size" ]] || [[ "${prompts[i]}" == "swap_partition_size" ]]; then
-                options[i]="${options[i]}${configuration[${prompts[i]}]} GiB"
+                options+=("${configuration["${prompts[i]}"]} GiB")
             elif [[ "${prompts[i]}" == "users" ]]; then
                 length=$(config::get_user_count)
-                options[i]="${options[i]}${length}"
+                options+=("${length}")
             else
-                options[i]="${options[i]}${configuration[${prompts[i]}]}"
+                options+=("${configuration["${prompts[i]}"]}")
             fi
         done
 
-        # add aditional options
-        options["${#options[@]}"]="install"
+        input::capture_dialog status selection dialog --ok-label "Edit" --cancel-label "Install" --menu "${prompt}" 0 0 0 "${options[@]}"
 
-        input::read_option "${prompt}" options true "${index}"
-        index="${input_selection}"
-        selection="${options[index]}"
-
-        # execute prompts or specialized commands
-        if [[ "${selection}" == "install" ]]; then
-            # make sure each setting has a value
+        # execute specialized commands or the prompt functions
+        if [[ "${selection}" == "" ]]; then
+            # make sure each configuration setting has a value
             value=""
-            for ((i = 0; i < ${#options[@]} - 1 ; i++)); do
+            for ((i = 0; i < ${#labels[@]}; i++)); do
                 if [[ "${configuration["${prompts[i]}"]}" == "" ]]; then
-                    value="${options[i]}"
+                    value="${labels[i]}"
                     break 1
                 fi
             done
 
             if [[ "${value}" == "" ]]; then
-                # if no setting had a value, exit to installation
+                # if every setting had a value, exit to installation
                 break 1
             else
                 # else tell user which setting needs to be configured next
-                clear
-                echo "You have not Configured Setting: $(echo "${value}" | sed 's/^[ \t]*//' |sed 's/://')"
-                read -p "Press Enter to Continue" value
+                input::capture_dialog status status dialog --msgbox "You have not Configured Setting: ${value}" 0 0
             fi
         else
-            # get the configuration function for the selection
-            prompt_function="config::prompt_${prompts[index]}"
+            # find the correct prompt function for a given label
+            # a dictionary would work great for this if it kept items in correct order
+            for (( i = 0; i < "${#labels[@]}"; i++ )); do
+                if [[ "${selection}" == "${labels[i]}" ]]; then
+                    # get the configuration function for the selection
+                    prompt_function="config::prompt_${prompts[i]}"
 
-            # execute config function
-            clear
-            "${prompt_function}"
+                    # execute config function
+                    "${prompt_function}"
+
+                    break 1
+                fi
+            done
         fi
     done
 }
