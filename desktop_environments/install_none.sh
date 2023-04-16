@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-desktop_environment::install_plasma()
+desktop_environment::install_none()
 {
     root_mount="$1"
 
