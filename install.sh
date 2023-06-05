@@ -99,6 +99,9 @@ function install::main()
     # connect to the internet
     network::setup
 
+    # network might not have been accessable until now, sync the repos
+    system::sync_installer_repositories
+
     # now that we have internet access, we can install packages we need
     system::install_dependencies
 

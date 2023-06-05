@@ -5,34 +5,6 @@
 ###################################################################################################
 
 ###################################################################################################
-# Checks if the system has booted in uefi mode
-#
-# Globals:
-#   N/A
-#
-# Arguments:
-#   N/A
-#
-# Output:
-#   return 0 for UEFI mode enabled, return 1 for UEFI mode disabled
-#
-# Source:
-#   N/A
-###################################################################################################
-function system::uefi()
-{
-    local uefi_vars
-
-    uefi_vars=$(efivar -l 2>&1)
-
-    if ! [[ ${uefi_vars:0:13} = "efivar: error" ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-###################################################################################################
 # get the CPU vendor, intel/amd/unknown
 #
 # Globals:
@@ -202,26 +174,6 @@ EOF
 function system::sync_installer_repositories()
 {
     pacman -Sy
-}
-
-###################################################################################################
-# syncs and updates pacman repositories
-#
-# Globals:
-#   N/A
-#
-# Arguments:
-#   N/A
-#
-# Output:
-#   N/A
-#
-# Source:
-#   N/A
-###################################################################################################
-function system::update_installer_repositories()
-{
-    pacman -Syu
 }
 
 ###################################################################################################
@@ -714,7 +666,7 @@ function system::install_base_linux()
     local micro_code
 
 
-pacstrap -i "${root_mount}" "base" "base-devel" "openssh" "git" "linux-firmware" "vim" "bash-completion" "networkmanager" "${kernel}" "${kernel}-headers" << base_install_commands
+pacstrap -i "${root_mount}" "base" "base-devel" "openssh" "git" "linux-firmware" "vim" "bash-completion" "networkmanager" "grub" "${kernel}" "${kernel}-headers" << base_install_commands
 $(echo)
 $(echo)
 $(echo)
@@ -736,140 +688,6 @@ $(echo)
 micro_code_install_commands
 fi
 
-}
-
-###################################################################################################
-# installs the uefi boot loader
-#
-# Globals:
-#   N/A
-#
-# Arguments:
-#   path to where the root partition is mounted, without trailing slash
-#   root partition
-#   cpu vendor
-#   install micro code true / false
-#
-# Output:
-#   N/A
-#
-# Source:
-#   N/A
-###################################################################################################
-function system::install_boot_loader_uefi()
-{
-    local root_mount="$1"
-    local kernel="$2"
-    local root_partition="$3"
-    local cpu_vendor="$4"
-    local install_micro_code="$5"
-
-    local micro_code="${cpu_vendor}-ucode.img"
-    local boot_loader_config="${root_mount}/boot/loader/entries/arch.conf"
-
-    # install boot loader
-    arch-chroot "${root_mount}" "bootctl" "install"
-
-    # make UEFI boot loader file
-    mkdir -p "${root_mount}/boot/loader/entries"
-    echo "title Arch Linux" > "${boot_loader_config}"
-    echo "linux /vmlinuz-${kernel}" >> "${boot_loader_config}"
-
-    if $install_micro_code; then
-        echo "initrd /${micro_code}" >> "${boot_loader_config}"
-    fi
-
-    echo "initrd /initramfs-${kernel}.img" >> "${boot_loader_config}"
-    echo "options root=PARTUUID=$(blkid -s PARTUUID -o value "${root_partition}") rw" >> "${boot_loader_config}"
-}
-
-###################################################################################################
-# installs the bios boot loader
-#
-# Globals:
-#   N/A
-#
-# Arguments:
-#   path to where the root partition is mounted, without trailing slash
-#   root partition
-#   cpu vendor
-#   install micro code true / false
-#
-# Output:
-#   N/A
-#
-# Source:
-#   N/A
-#
-# TODO: make the micro code insertion more robust
-###################################################################################################
-function system::install_boot_loader_bios()
-{
-    local root_mount="$1"
-    local kernel="$2"
-    local root_partition="$3"
-    local cpu_vendor="$4"
-    local install_micro_code="$5"
-
-    local micro_code="${cpu_vendor}-ucode.img"
-    local boot_loader_config="${root_mount}/boot/syslinux/syslinux.cfg"
-    local root_part_uuid
-
-    # install bios boot loader, syslinux
-pacstrap -i "${root_mount}" "syslinux" << syslinux_install_commands
-$(echo)
-y
-syslinux_install_commands
-
-    # install syslinux MBR
-    syslinux-install_update -i -a -m -c "${root_mount}"
-
-    root_part_uuid=$(blkid -s PARTUUID -o value "${root_partition}")
-
-    # configure boot loader entry
-    sed -i "s.root=${root_partition}.root=PARTUUID=${root_part_uuid}." "${boot_loader_config}"
-    if $install_micro_code; then
-        sed -i "55 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
-        sed -i "62 i \ \ \ \ INITRD ../${micro_code}" "${boot_loader_config}"
-    fi
-
-    sed -i "s/linux/${kernel}/g" "${boot_loader_config}"
-}
-
-###################################################################################################
-# installs the boot loader
-# Globals:
-#   N/A
-#
-# Arguments:
-#   uefi mode true / false
-#   path to where the root partition is mounted, without trailing slash
-#   root partition
-#   cpu vendor
-#   install micro code true / false
-#
-# Output:
-#   N/A
-#
-# Source:
-#   N/A
-#
-# TODO: make the micro code insertion more robust
-###################################################################################################
-function system::install_boot_loader()
-{
-    local uefi="$1"
-    local root_mount="$2"
-    local kernel="$3"
-    local root_partition="$4"
-    local cpu_vendor="$5"
-    local install_micro_code="$6"
-
-    if $uefi; then
-        system::install_boot_loader_uefi "${root_mount}" "${kernel}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
-    else
-        system::install_boot_loader_bios "${root_mount}" "${kernel}" "${root_partition}" "${cpu_vendor}" "${install_micro_code}"
-    fi
 }
 
 ###################################################################################################
@@ -971,7 +789,6 @@ function system::install()
     local root_mount="$1"
     local -n config=$2
     local host_name
-    local root_partition
 
     # sync the repos and re-init the key ring
     system::init_installer_keyring
@@ -1020,9 +837,7 @@ function system::install()
 
     system::sync_repositories "${root_mount}"
 
-    root_partition=$(disk::get_root_partition "${config["drive"]}")
-
-    system::install_boot_loader "${config["uefi"]}" "${root_mount}" "${config["kernel"]}" "${root_partition}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
+    boot::install_boot_loader "${config["uefi"]}" "${config["drive"]}" "${root_mount}"
 
     gpu_driver::install "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
 
