@@ -24,14 +24,8 @@ install_commands
 
     local boot_text="radeon.si_support=0 amdgpu.si_support=1 radeon.cik_support=0 amdgpu.cik_support=1"
 
-    # update the correct boot loader based on uefi status
-    local boot_path="${root_mount}/boot/syslinux/syslinux.cfg"
-    if $uefi; then
-        boot_path="${root_mount}/boot/loader/entries/arch.conf"
-    fi
-
     # update the configuration of the boot loader
-    sed -i "s/rw/rw ${boot_text}/" ${boot_path}
+    boot::add_linux_parameters "${root_mount}" "${boot_text}"
 
     echo "Finished installing AMD drivers."
 }

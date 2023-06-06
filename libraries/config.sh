@@ -6,7 +6,7 @@
 
 # Global hash table of configuration values for the install script
 export -A configuration=(
-    ["uefi"]=""                             # true / false
+    ["uefi"]=""                             # system supports Unified Extensible Firmware Interface true / false
     ["install_micro_code"]=""               # install micro code true / false
     ["cpu_vendor"]=""                       # intel / amd
     ["gpu_driver"]=""                       # name of gpu driver installer
@@ -43,7 +43,7 @@ export -A configuration=(
 ###################################################################################################
 function config::load_defaults()
 {
-    if system::uefi; then
+    if boot::uefi; then
         configuration["uefi"]=true
     else
         configuration["uefi"]=false
@@ -91,7 +91,7 @@ function config::prompt_uefi()
     local option
     local options=("on" "off")
 
-    if system::uefi; then
+    if boot::uefi; then
         configuration["uefi"]=true
 
         input::capture_dialog status option dialog --yesno "Enable UEFI" 0 0
@@ -1253,6 +1253,12 @@ function config::show_menu()
             # make sure each configuration setting has a value
             value=""
             for ((i = 0; i < ${#labels[@]}; i++)); do
+
+                # ignore some settings which can be left unconfigured
+                if [[ "${prompts[i]}" == "users" ]]; then
+                    continue
+                fi
+
                 if [[ "${configuration["${prompts[i]}"]}" == "" ]]; then
                     value="${labels[i]}"
                     break 1
