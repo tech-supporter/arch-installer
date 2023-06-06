@@ -86,7 +86,7 @@ function boot::install_boot_loader_bios()
     local drive="$2"
 
     # install boot loader
-    arch-chroot "${root_mount}" "grub-install" "${drive}"
+    arch-chroot "${root_mount}" "grub-install" "--target=i386-pc" "/dev/${drive}"
 }
 
 ###################################################################################################

@@ -15,7 +15,6 @@ export -A configuration=(
     ["swap_partition_size"]=""              # size of the swap partition in gigabytes
     ["root_partition_size"]=""              # size of root partition in gigabytes
     ["drive"]=""                            # drive to install to
-    ["encryption_passphrase"]=""            # encryption passphrase, enables disk encryption if set
     ["kernel"]=""                           # linux kernal varient: linux, linux-lts, linux-hardened, etc
     ["timezone"]=""                         # timezone: America/Chicago
     ["locale"]=""                           # system localization: "en_US.UTF-8 UTF-8"
@@ -1221,11 +1220,11 @@ function config::show_menu()
     local length=0
     local labels=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
                     "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Desktop Environment" "Root Password" "Users"
-                    "Drive" "Encryption Passphrase" "Root Partition Size" "Swap Partition Size"
+                    "Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
     local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories" "enable_ssh_server"
                    "key_map" "locale" "timezone" "computer_name" "location" "desktop_environment" "root_password" "users"
-                   "drive" "encryption_passphrase" "root_partition_size" "swap_partition_size"
+                   "drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 
     while true; do
