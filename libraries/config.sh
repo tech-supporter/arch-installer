@@ -1255,7 +1255,7 @@ function config::show_menu()
             for ((i = 0; i < ${#labels[@]}; i++)); do
 
                 # ignore some settings which can be left unconfigured
-                if [[ "${prompts[i]}" == "users" ]] || [[ "${prompts[i]}" == "encryption_passphrase" ]]; then
+                if [[ "${prompts[i]}" == "users" ]]; then
                     continue
                 fi
 
