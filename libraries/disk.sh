@@ -40,9 +40,13 @@ function disk::format()
         return 1
     fi
 
-    disk::partition "${drive}" "${uefi}" "${root_size}" "${swap_size}"
+    disk::partition "${drive}" "${uefi}"
 
-    disk::make_file_systems "${drive}"
+    disk::make_boot_file_system "${drive}" "${uefi}"
+
+    disk::make_volumes "${drive}" "${root_size}" "${swap_size}"
+
+    disk::make_volume_file_systems "${drive}"
 
     disk::mount_file_systems "${drive}"
 
@@ -71,13 +75,11 @@ function disk::partition()
 {
     local drive="$1"
     local uefi="$2"
-    local root_size="$3"
-    local swap_size="$4"
 
     if $uefi; then
-        disk::partition_uefi "${drive}" "${root_size}" "${swap_size}"
+        disk::partition_uefi "${drive}"
     else
-        disk::partition_bios "${drive}" "${root_size}" "${swap_size}"
+        disk::partition_bios "${drive}"
     fi
 }
 
@@ -102,7 +104,34 @@ function disk::clear()
 
     # unmount existing partitions and turn off swap spaces
     swapoff -a
-    umount -R -f "/mnt"
+
+    umount "/dev/${drive}"
+
+    umount "/dev/systemvg/*"
+
+# hard coding the removal of our own lvm to make re-installing work, won't remove other lvms
+# wiping the drive and rebooting works but is a little too annoying for me
+# would like to find a way to tell the linux kernel that it needs to rescan the drive after wiping
+# maybe lvm2 needs to know?
+lvremove "/dev/systemvg/rootlv" << EOF
+y
+EOF
+
+lvremove "/dev/systemvg/swaplv" << EOF
+y
+EOF
+
+lvremove "/dev/systemvg/homelv" << EOF
+y
+EOF
+
+vgremove "systemvg" << EOF
+y
+EOF
+
+pvremove "/dev/${drive}" << EOF
+y
+EOF
 
     # remove file systems on the drive
     wipefs -a -f "/dev/${drive}"
@@ -114,6 +143,7 @@ z
 y
 y
 clear_commands
+
 }
 
 ###################################################################################################
@@ -136,8 +166,6 @@ clear_commands
 function disk::partition_uefi()
 {
     local drive="$1"
-    local root_size="$2"
-    local swap_size="$3"
 
     disk::clear "${drive}"
 
@@ -148,22 +176,12 @@ n
 1
 $(echo)
 +1GiB
-EF00
+ef00
 n
 2
 $(echo)
-+${swap_size}GiB
-8200
-n
-3
 $(echo)
-+${root_size}GiB
-8300
-n
-4
-$(echo)
-$(echo)
-8300
+8e00
 w
 y
 q
@@ -190,8 +208,6 @@ partition_commands
 function disk::partition_bios()
 {
     local drive="$1"
-    local root_size="$2"
-    local swap_size="$3"
 
     disk::clear "${drive}"
 
@@ -211,22 +227,11 @@ n
 p
 2
 $(echo)
-+${swap_size}GiB
+$(echo)
 y
-n
-p
-3
-$(echo)
-+${root_size}GiB
-y
-n
-p
-4
-$(echo)
-$(echo)
 t
 2
-82
+44
 w
 y
 q
@@ -287,7 +292,7 @@ function disk::get_boot_partition()
 }
 
 ###################################################################################################
-# gets the path to the drive's swap partition, assumes index 2
+# gets the path to the drive's lvm partition, assumes index 2
 #
 # Globals:
 #   N/A
@@ -301,7 +306,7 @@ function disk::get_boot_partition()
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_swap_partition()
+function disk::get_lvm_partition()
 {
     local drive="$1"
     local partition
@@ -312,32 +317,7 @@ function disk::get_swap_partition()
 }
 
 ###################################################################################################
-# gets the path to the drive's root partition, assumes index 3
-#
-# Globals:
-#   N/A
-#
-# Arguments:
-#   drive name
-#
-# Output:
-#   string path to partition, /dev/sdx3
-#
-# Source:
-#   N/A
-###################################################################################################
-function disk::get_root_partition()
-{
-    local drive="$1"
-    local partition
-
-    partition=$(disk::get_partition_by_number "${drive}" "3")
-
-    echo "${partition}"
-}
-
-###################################################################################################
-# gets the path to the drive's home partition, assumes index 4
+# creates the file system on the boot partition
 #
 # Globals:
 #   N/A
@@ -351,48 +331,17 @@ function disk::get_root_partition()
 # Source:
 #   N/A
 ###################################################################################################
-function disk::get_home_partition()
-{
-    local drive="$1"
-    local partition
-
-    partition=$(disk::get_partition_by_number "${drive}" "4")
-
-    echo "${partition}"
-}
-
-###################################################################################################
-# creates the file systems on the partitions and creates/enables swap
-#
-# Globals:
-#   N/A
-#
-# Arguments:
-#   drive name
-#
-# Output:
-#   string path to partition, /dev/sdx4
-#
-# Source:
-#   N/A
-###################################################################################################
-function disk::make_file_systems()
+function disk::make_boot_file_system()
 {
     local drive="$1"
     local uefi="$2"
 
     local boot_partition
-    local swap_partition
-    local root_partition
-    local home_partition
 
     boot_partition=$(disk::get_boot_partition "${drive}")
-    swap_partition=$(disk::get_swap_partition "${drive}")
-    root_partition=$(disk::get_root_partition "${drive}")
-    home_partition=$(disk::get_home_partition "${drive}")
 
 if $uefi; then
-mkfs.fat -F32 "${boot_partition}" << mkfat
+mkfs.fat -n BOOT -F32 "${boot_partition}" << mkfat
 y
 mkfat
 else
@@ -401,23 +350,82 @@ y
 mkfs_cmds
 fi
 
-mkswap "${swap_partition}"
-swapon "${swap_partition}"
+}
 
-mkfs.ext4 "${root_partition}" << mkfs_cmds
+###################################################################################################
+# creates the main system physical volume, volume group, root, swap and home logical volumes
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   drive name
+#
+# Output:
+#   string path to partition, /dev/sdx4
+#
+# Source:
+#   N/A
+###################################################################################################
+function disk::make_volumes()
+{
+    local drive="$1"
+    local root_size="$2"
+    local swap_size="$3"
+
+    local lvm_partition
+
+    lvm_partition=$(disk::get_lvm_partition "${drive}")
+
+    pvcreate "${lvm_partition}"
+
+    vgcreate "systemvg" "${lvm_partition}"
+
+lvcreate -L "${root_size}G" -n "rootlv" "systemvg" << cmds
 y
-mkfs_cmds
+cmds
 
-mkfs.ext4 "${home_partition}" << mkfs_cmds
+lvcreate -L "${swap_size}G" -n "swaplv" "systemvg" << cmds
 y
-mkfs_cmds
+cmds
 
-# create the directories right away
-mount "${root_partition}" "/mnt"
-mkdir "/mnt/boot"
-mkdir "/mnt/home"
-umount "/mnt"
+lvcreate -l "+100%FREE" -n "homelv" "systemvg" << cmds
+y
+cmds
+}
 
+###################################################################################################
+# creates the file systems and swap on the logical volumes
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function disk::make_volume_file_systems()
+{
+mkfs.ext4 -L "root" "/dev/systemvg/rootlv" << cmds
+y
+cmds
+
+mkfs.ext4 -L "home" "/dev/systemvg/homelv" << cmds
+y
+cmds
+
+mkswap -L "swap" "/dev/systemvg/swaplv" << cmds
+y
+cmds
+
+swapon -L "swap" "/dev/systemvg/swaplv" << cmds
+y
+cmds
 }
 
 ###################################################################################################
@@ -440,16 +448,10 @@ function disk::mount_file_systems()
     local drive="$1"
 
     local boot_partition
-    local swap_partition
-    local root_partition
-    local home_partition
 
     boot_partition=$(disk::get_boot_partition "${drive}")
-    swap_partition=$(disk::get_swap_partition "${drive}")
-    root_partition=$(disk::get_root_partition "${drive}")
-    home_partition=$(disk::get_home_partition "${drive}")
 
-    mount "${root_partition}" "/mnt"
-    mount "${boot_partition}" "/mnt/boot"
-    mount "${home_partition}" "/mnt/home"
+    mount "/dev/systemvg/rootlv" "/mnt"
+    mount "${boot_partition}" "/mnt/boot" --mkdir
+    mount "/dev/systemvg/homelv" "/mnt/home" --mkdir
 }

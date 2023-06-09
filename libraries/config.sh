@@ -57,7 +57,6 @@ function config::load_defaults()
     configuration["locale"]="en_US.UTF-8 UTF-8"
     configuration["key_map"]="us"
     configuration["timezone"]="America/Chicago"
-    configuration["root_partition_size"]=64
     configuration["swap_partition_size"]=$(system::memory_size)
     configuration["kernel"]="linux"
     configuration["install_unofficial_repositories"]=false

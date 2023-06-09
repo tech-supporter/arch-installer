@@ -6,7 +6,7 @@ desktop_environment::install_plasma()
 
     echo "Installing Plasma Desktop enviorment with X11 and SDDM..."
 
-pacstrap -i "${root_mount}" "mesa" "xorg" "plasma" "dolphin" "konsole" "sddm" << syslinux_install_commands
+pacstrap -i "${root_mount}" "mesa" "xorg" "plasma" "dolphin" "konsole" "sddm" "sof-firmware" << syslinux_install_commands
 $(echo)
 $(echo)
 $(echo)

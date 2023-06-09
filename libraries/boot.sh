@@ -113,10 +113,6 @@ function boot::install_boot_loader()
     local drive="$2"
     local root_mount="$3"
 
-    local root_partition
-
-    root_partition=$(disk::get_root_partition "${drive}")
-
     # run installer grub script
     if $uefi; then
         boot::install_boot_loader_uefi "${root_mount}" "${drive}"
@@ -125,7 +121,7 @@ function boot::install_boot_loader()
     fi
 
     # generate grub config
-    boot::generate_config "${root_mount}"
+    boot::generate_grub_config "${root_mount}"
 
     # add root partition uuid to linux parameters
     #boot::add_linux_parameters "${root_mount}" "options root=PARTUUID=$(blkid -s PARTUUID -o value "${root_partition}") rw"
@@ -146,7 +142,7 @@ function boot::install_boot_loader()
 #   N/A
 #
 ###################################################################################################
-function boot::generate_config()
+function boot::generate_grub_config()
 {
     local root_mount="$1"
 
@@ -177,5 +173,5 @@ function boot::add_linux_parameters()
     sed -i "s/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"${parameters} /" "${root_mount}/etc/default/grub"
 
     # generate grub config
-    boot::generate_config "${root_mount}"
+    boot::generate_grub_config "${root_mount}"
 }
