@@ -6,7 +6,7 @@ desktop_environment::install_lxqt()
 
     echo "Installing LXQT Desktop enviorment with X11 and SDDM..."
 
-pacstrap -i "${root_mount}" "mesa" "xorg" "lxqt" "sddm" "breeze-icons" << syslinux_install_commands
+pacstrap -i "${root_mount}" "mesa" "xorg" "lxqt" "sddm" "breeze-icons" "sof-firmware" << syslinux_install_commands
 $(echo)
 $(echo)
 $(echo)

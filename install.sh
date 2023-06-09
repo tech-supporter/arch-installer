@@ -111,7 +111,7 @@ function install::main()
     # preform the install with the given configuration
     system::install "/mnt" configuration
 
-    input::capture_dialog status status dialog --msgbox "Installation Complete!" 0 0
+    #input::capture_dialog status status dialog --msgbox "Installation Complete!" 0 0
 }
 
 install::main

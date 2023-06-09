@@ -410,7 +410,7 @@ function system::set_timezone()
     local root_mount="$1"
     local timezone="$2"
 
-    arch-chroot "${root_mount}" "ln" "-s" "/usr/share/zoneinfo/${timezone}" "/etc/localtime"
+    arch-chroot "${root_mount}" "ln" "-sf" "/usr/share/zoneinfo/${timezone}" "/etc/localtime"
     arch-chroot "${root_mount}" "hwclock" "--systohc" "--utc"
 }
 
@@ -521,6 +521,56 @@ function system::load_key_map()
     local key_map="$1"
 
     loadkeys "${key_map}"
+}
+
+###################################################################################################
+# builds the linux kernel using mkinitcpio
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::build_kernel()
+{
+    local root_mount="$1"
+
+    arch-chroot "${root_mount}" mkinitcpio -P
+}
+
+###################################################################################################
+# appends to the start of the linux kernal hooks
+# Globals:
+#   N/A
+#
+# Arguments:
+#   path to where the root partition is mounted, without trailing slash
+#   parameters to append
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function system::add_kernel_hook_after()
+{
+    local root_mount="$1"
+    local parameters="$2"
+    local after="$3"
+
+    sed -i "s/${after}/${after} ${parameters}/" "${root_mount}/etc/mkinitcpio.conf"
+
+    # generate linux kernel
+    system::build_kernel "${root_mount}"
 }
 
 ###################################################################################################
@@ -666,7 +716,7 @@ function system::install_base_linux()
     local micro_code
 
 
-pacstrap -i "${root_mount}" "base" "base-devel" "openssh" "git" "linux-firmware" "vim" "bash-completion" "networkmanager" "grub" "${kernel}" "${kernel}-headers" << base_install_commands
+pacstrap -i "${root_mount}" "base" "base-devel" "openssh" "git" "linux-firmware" "vim" "bash-completion" "networkmanager" "lvm2" "grub" "${kernel}" "${kernel}-headers" << base_install_commands
 $(echo)
 $(echo)
 $(echo)
@@ -807,6 +857,8 @@ function system::install()
 
     # generate the file that keeps track of partitions
     system::generate_fstab "${root_mount}"
+
+    system::add_kernel_hook_after "${root_mount}" "lvm2" "block"
 
     system::set_locale "${root_mount}" "${config["locale"]}"
 
