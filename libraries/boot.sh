@@ -122,9 +122,6 @@ function boot::install_boot_loader()
 
     # generate grub config
     boot::generate_grub_config "${root_mount}"
-
-    # add root partition uuid to linux parameters
-    #boot::add_linux_parameters "${root_mount}" "options root=PARTUUID=$(blkid -s PARTUUID -o value "${root_partition}") rw"
 }
 
 ###################################################################################################
@@ -170,7 +167,7 @@ function boot::add_linux_parameters()
     local root_mount="$1"
     local parameters="$2"
 
-    sed -i "s/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"${parameters} /" "${root_mount}/etc/default/grub"
+    sed -i "s|GRUB_CMDLINE_LINUX=\"|GRUB_CMDLINE_LINUX=\"${parameters} |" "${root_mount}/etc/default/grub"
 
     # generate grub config
     boot::generate_grub_config "${root_mount}"

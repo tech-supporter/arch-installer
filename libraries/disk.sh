@@ -29,9 +29,12 @@
 function disk::format()
 {
     local drive="$1"
-    local uefi="$2"
-    local root_size="$3"
-    local swap_size="$4"
+    local root_mount="$2"
+    local wipe_drive="$3"
+    local uefi="$4"
+    local root_size="$5"
+    local swap_size="$6"
+    local encryption_password="$7"
 
     local fdisk_output
 
@@ -40,21 +43,23 @@ function disk::format()
         return 1
     fi
 
-    disk::partition "${drive}" "${uefi}"
+    disk::partition "${drive}" "${wipe_drive}" "${uefi}"
 
     disk::make_boot_file_system "${drive}" "${uefi}"
 
     disk::make_volumes "${drive}" "${root_size}" "${swap_size}"
 
-    disk::make_volume_file_systems "${drive}"
-
-    disk::mount_file_systems "${drive}"
+    if [[ "${encryption_password}" == "" ]]; then
+        disk::make_unencrypted_volume_file_systems "${drive}" "${root_mount}"
+    else
+        disk::make_encrypted_file_system_part_1 "${drive}" "${root_mount}" "${encryption_password}"
+    fi
 
     return 0
 }
 
 ###################################################################################################
-# partitions a drive with either uefi or bios mode boot partition
+# partitions a drive with either uefi or mbr boot partition
 #
 # Globals:
 #   N/A
@@ -74,7 +79,10 @@ function disk::format()
 function disk::partition()
 {
     local drive="$1"
-    local uefi="$2"
+    local wipe_drive="$2"
+    local uefi="$3"
+
+    disk::clear "${drive}" "${wipe_drive}"
 
     if $uefi; then
         disk::partition_uefi "${drive}"
@@ -101,13 +109,16 @@ function disk::partition()
 function disk::clear()
 {
     local drive="$1"
+    local wipe_drive="$2"
 
     # unmount existing partitions and turn off swap spaces
     swapoff -a
 
     umount "/dev/${drive}"
 
-    umount "/dev/systemvg/*"
+    umount "/mnt/boot"
+    umount "/mnt/home"
+    umount "/mnt"
 
 # hard coding the removal of our own lvm to make re-installing work, won't remove other lvms
 # wiping the drive and rebooting works but is a little too annoying for me
@@ -144,6 +155,59 @@ y
 y
 clear_commands
 
+    # wipe entire drive with random data if needed
+    if $wipe_drive; then
+        disk::wipe "${drive}"
+    fi
+
+}
+
+###################################################################################################
+# Wipes the drive with random data by writing encrypted zeros to it
+# Using encryption here to leverage the speed of the hardware accelerated encryption to generate
+#   random data.
+# Pulling directly from /dev/random would take much longer as it would hang while generating more
+#   randomness.
+# /dev/urandom would work but it is less "random" once it runs out of entropy.
+# The encryption leaves behind meta data so we need to wipe that afterwards.
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   drive name
+#
+# Output:
+#   string path to partition, /dev/sdx4
+#
+# Source:
+#   N/A
+###################################################################################################
+function disk::wipe()
+{
+    local drive="$1"
+    local password
+
+    # get random password
+    password=$(security::generate_password "64")
+
+    # create full disk encryption, -q to remove the YES confirm and password verification
+cryptsetup -q "luksFormat" "/dev/${drive}" --type "luks2" << EOF
+${password}
+EOF
+
+cryptsetup "open" "/dev/${drive}" "encrypted_disk" << EOF
+${password}
+EOF
+
+    # wipe drive with 0s encrypted to make them random data
+    dd "if=/dev/zero" "of=/dev/mapper/encrypted_disk" "bs=1M" "status=progress"
+
+    # remove encrypted device
+    cryptsetup "remove" "encrypted_disk"
+
+    # write over the luks meta data left at the start of the disk
+    dd "if=/dev/urandom" "of=/dev/${drive}" "bs=1M" "count=1" "status=progress"
 }
 
 ###################################################################################################
@@ -166,8 +230,6 @@ clear_commands
 function disk::partition_uefi()
 {
     local drive="$1"
-
-    disk::clear "${drive}"
 
 gdisk "/dev/${drive}" << partition_commands
 o
@@ -208,8 +270,6 @@ partition_commands
 function disk::partition_bios()
 {
     local drive="$1"
-
-    disk::clear "${drive}"
 
     # In Bios Mode
     # o=made bios signature which is also auto made is none found when opening this program, y to accept
@@ -360,9 +420,11 @@ fi
 #
 # Arguments:
 #   drive name
+#   size of root partition
+#   size of swap partition
 #
 # Output:
-#   string path to partition, /dev/sdx4
+#   N/A
 #
 # Source:
 #   N/A
@@ -381,17 +443,27 @@ function disk::make_volumes()
 
     vgcreate "systemvg" "${lvm_partition}"
 
-lvcreate -L "${root_size}G" -n "rootlv" "systemvg" << cmds
+    # would be really nice if I could tell it to wipe all signatures with a parameter instead of accepting prompts with 'y'
+lvcreate -L "${root_size}G" -n "rootlv" "systemvg" << EOF
 y
-cmds
+y
+y
+y
+EOF
 
-lvcreate -L "${swap_size}G" -n "swaplv" "systemvg" << cmds
+lvcreate -L "${swap_size}G" -n "swaplv" "systemvg" << EOF
 y
-cmds
+y
+y
+y
+EOF
 
-lvcreate -l "+100%FREE" -n "homelv" "systemvg" << cmds
+lvcreate -l "+100%FREE" -n "homelv" "systemvg" << EOF
 y
-cmds
+y
+y
+y
+EOF
 }
 
 ###################################################################################################
@@ -409,8 +481,15 @@ cmds
 # Source:
 #   N/A
 ###################################################################################################
-function disk::make_volume_file_systems()
+function disk::make_unencrypted_volume_file_systems()
 {
+    local drive="$1"
+    local root_mount="$2"
+
+    local boot_partition
+
+    boot_partition=$(disk::get_boot_partition "${drive}")
+
 mkfs.ext4 -L "root" "/dev/systemvg/rootlv" << cmds
 y
 cmds
@@ -426,32 +505,106 @@ cmds
 swapon -L "swap" "/dev/systemvg/swaplv" << cmds
 y
 cmds
+
+    mount "/dev/systemvg/rootlv" "${root_mount}"
+    mount "${boot_partition}" "${root_mount}/boot" --mkdir
+    mount "/dev/systemvg/homelv" "${root_mount}/home" --mkdir
+
 }
 
 ###################################################################################################
-# mounts the file systems to /mnt
+# creates the root/boot file systems and mounts them
 #
 # Globals:
 #   N/A
 #
 # Arguments:
-#   drive name
+#   N/A
 #
 # Output:
-#   string path to partition, /dev/sdx4
+#   N/A
 #
 # Source:
 #   N/A
 ###################################################################################################
-function disk::mount_file_systems()
+function disk::make_encrypted_file_system_part_1()
 {
     local drive="$1"
+    local root_mount="$2"
+    local encryption_password="$3"
 
     local boot_partition
 
     boot_partition=$(disk::get_boot_partition "${drive}")
 
-    mount "/dev/systemvg/rootlv" "/mnt"
-    mount "${boot_partition}" "/mnt/boot" --mkdir
-    mount "/dev/systemvg/homelv" "/mnt/home" --mkdir
+    # create full disk encryption, -q to remove the YES confirm and password verification
+cryptsetup -q "luksFormat" "/dev/systemvg/rootlv" --type "luks2" << EOF
+${encryption_password}
+EOF
+
+cryptsetup "open" "/dev/systemvg/rootlv" "root" << EOF
+${encryption_password}
+EOF
+    # create root file system
+mkfs.ext4 -L "root" "/dev/mapper/root" << EOF
+y
+EOF
+
+    # mount root
+    mount "/dev/mapper/root" "${root_mount}"
+
+    # mount boot onto root
+    mount "${boot_partition}" "${root_mount}/boot" --mkdir
+}
+
+###################################################################################################
+# creates the home file systems and sets up swap
+#
+# Globals:
+#   N/A
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+###################################################################################################
+function disk::make_encrypted_file_system_part_2()
+{
+    local root_mount="$1"
+    local encryption_password="$2"
+
+    # add linux parameter to grub config to set root volume
+    boot::add_linux_parameters "${root_mount}" "cryptdevice=UUID=$(blkid -s "UUID" -o "value" "/dev/systemvg/rootlv"):root root=/dev/mapper/root"
+
+    # generate key file for home
+    mkdir -m "700" "${root_mount}/etc/luks-keys"
+    dd "if=/dev/random" "of=${root_mount}/etc/luks-keys/home.key" "bs=1" "count=256" "status=progress"
+
+    # create luks encryption for home
+cryptsetup -q "luksFormat" "/dev/systemvg/homelv" "${root_mount}/etc/luks-keys/home.key" --type "luks2" << EOF
+YES
+EOF
+
+    # open / map home lv
+    cryptsetup -d "${root_mount}/etc/luks-keys/home.key" "open" "/dev/systemvg/homelv" "home"
+
+    # make home file system
+mkfs.ext4 -L "home" "/dev/mapper/home" << EOF
+y
+EOF
+
+    # mount home directory
+    mount "/dev/mapper/home" "${root_mount}/home" --mkdir
+
+    # edit crypttab
+    echo "swap    /dev/systemvg/swaplv    /dev/urandom     swap,cipher=aes-xts-plain64,size=256" >> "${root_mount}/etc/crypttab"
+    echo "home    /dev/systemvg/homelv    /etc/luks-keys/home.key   luks" >> "${root_mount}/etc/crypttab"
+
+    # edit fstab
+    echo "/dev/mapper/swap    none    swap    sw          0   0" >> "${root_mount}/etc/fstab"
+    echo "/dev/mapper/home    /home   ext4    defaults    0   2" >> "${root_mount}/etc/fstab"
 }

@@ -15,6 +15,8 @@ export -A configuration=(
     ["swap_partition_size"]=""              # size of the swap partition in gigabytes
     ["root_partition_size"]=""              # size of root partition in gigabytes
     ["drive"]=""                            # drive to install to
+    ["encryption_password"]=""              # passphrase used to encrypt the disk
+    ["wipe_drive"]=""                       # write random data to the whole drive before partitioning true / false
     ["kernel"]=""                           # linux kernal varient: linux, linux-lts, linux-hardened, etc
     ["timezone"]=""                         # timezone: America/Chicago
     ["locale"]=""                           # system localization: "en_US.UTF-8 UTF-8"
@@ -27,7 +29,7 @@ export -A configuration=(
 )
 
 ###################################################################################################
-# Checks if the system has booted in uefi mode
+# Loads the defaults for the installer
 #
 # Globals:
 #   configuration
@@ -36,7 +38,7 @@ export -A configuration=(
 #   N/A
 #
 # Output:
-#   return 0 for UEFI mode enabled, return 1 for UEFI mode disabled
+#   N/A
 #
 # Source:
 #   N/A
@@ -57,6 +59,8 @@ function config::load_defaults()
     configuration["locale"]="en_US.UTF-8 UTF-8"
     configuration["key_map"]="us"
     configuration["timezone"]="America/Chicago"
+    configuration["wipe_drive"]=false
+    configuration["root_partition_size"]="10"
     configuration["swap_partition_size"]=$(system::memory_size)
     configuration["kernel"]="linux"
     configuration["install_unofficial_repositories"]=false
@@ -113,7 +117,7 @@ function config::prompt_uefi()
 }
 
 ###################################################################################################
-# Prompt the user if they want to install vendor's microcode
+# Prompt the user if they want to install CPU vendor's microcode
 #
 # Globals:
 #   configuration["install_micro_code"]
@@ -1192,6 +1196,63 @@ function config::prompt_desktop_environment()
 }
 
 ###################################################################################################
+# Prompt the user for a disk encryption password
+#
+# Globals:
+#   configuration["encryption_password"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_encryption_password()
+{
+    local password
+    local prompt="Enter an encryption password"
+
+    input::read_password "${prompt}" password
+
+    configuration["encryption_password"]="${password}"
+}
+
+###################################################################################################
+# Prompt the user if they want the entire disk wiped before partitioning
+#
+# Globals:
+#   configuration["encryption_password"]
+#
+# Arguments:
+#   N/A
+#
+# Output:
+#   N/A
+#
+# Source:
+#   N/A
+#
+###################################################################################################
+function config::prompt_wipe_drive()
+{
+    local status
+    local option
+    local prompt="Wipe entire drive with random data?"
+
+    input::capture_dialog status option dialog --yesno "${prompt}" 0 0
+
+    if [[ "${status}" == "0" ]]; then
+        configuration["wipe_drive"]=true
+    else
+        configuration["wipe_drive"]=false
+    fi
+}
+
+###################################################################################################
 # Main configuration selection menu
 #
 # Globals:
@@ -1219,11 +1280,11 @@ function config::show_menu()
     local length=0
     local labels=("UEFI" "CPU Vendor" "Install CPU Micro Code" "GPU Driver" "Install Unofficial Repositories" "Enable SSH Server"
                     "Key Mapping" "Locale" "Timezone" "Computer Name" "Location" "Desktop Environment" "Root Password" "Users"
-                    "Drive" "Root Partition Size" "Swap Partition Size"
+                    "Drive" "Drive Encryption Password" "Wipe Drive" "Root Partition Size" "Swap Partition Size"
                     "Kernel")
     local prompts=("uefi" "cpu_vendor" "install_micro_code" "gpu_driver" "install_unofficial_repositories" "enable_ssh_server"
                    "key_map" "locale" "timezone" "computer_name" "location" "desktop_environment" "root_password" "users"
-                   "drive" "root_partition_size" "swap_partition_size"
+                   "drive" "encryption_password" "wipe_drive" "root_partition_size" "swap_partition_size"
                    "kernel")
 
     while true; do
@@ -1232,7 +1293,7 @@ function config::show_menu()
         options=()
         for ((i = 0; i < ${#labels[@]} ; i++)); do
             options+=("${labels[i]}")
-            if [[ "${prompts[i]}" == "root_password" ]]; then
+            if [[ "${prompts[i]}" == "root_password" ]] || [[ "${prompts[i]}" == "encryption_password" ]]; then
                 value="${configuration["${prompts[i]}"]}"
                 options+=("$(printf "%${#value}s\n" | tr ' ' '*')")
             elif [[ "${prompts[i]}" == "root_partition_size" ]] || [[ "${prompts[i]}" == "swap_partition_size" ]]; then
@@ -1254,7 +1315,7 @@ function config::show_menu()
             for ((i = 0; i < ${#labels[@]}; i++)); do
 
                 # ignore some settings which can be left unconfigured
-                if [[ "${prompts[i]}" == "users" ]]; then
+                if [[ "${prompts[i]}" == "users" ]] || [[ "${prompts[i]}" == "encryption_password" ]]; then
                     continue
                 fi
 
