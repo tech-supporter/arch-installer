@@ -524,56 +524,6 @@ function system::load_key_map()
 }
 
 ###################################################################################################
-# builds the linux kernel using mkinitcpio
-# Globals:
-#   N/A
-#
-# Arguments:
-#   path to where the root partition is mounted, without trailing slash
-#
-# Output:
-#   N/A
-#
-# Source:
-#   N/A
-#
-###################################################################################################
-function system::build_kernel()
-{
-    local root_mount="$1"
-
-    arch-chroot "${root_mount}" mkinitcpio -P
-}
-
-###################################################################################################
-# appends to the start of the linux kernal hooks
-# Globals:
-#   N/A
-#
-# Arguments:
-#   path to where the root partition is mounted, without trailing slash
-#   parameters to append
-#
-# Output:
-#   N/A
-#
-# Source:
-#   N/A
-#
-###################################################################################################
-function system::add_kernel_hook_after()
-{
-    local root_mount="$1"
-    local parameters="$2"
-    local after="$3"
-
-    sed -i "s/${after}/${after} ${parameters}/" "${root_mount}/etc/mkinitcpio.conf"
-
-    # generate linux kernel
-    system::build_kernel "${root_mount}"
-}
-
-###################################################################################################
 # configures the sudoers file of the install
 #
 # Globals:
@@ -685,6 +635,7 @@ function system::enable_services()
     local enable_ssh_server="$2"
 
     arch-chroot "${root_mount}" "systemctl" "enable" "NetworkManager.service"
+    arch-chroot "${root_mount}" "systemctl" "enable" "fstrim.timer"
 
     if $enable_ssh_server; then
         arch-chroot "${root_mount}" "systemctl" "enable" "sshd.service"
@@ -839,6 +790,15 @@ function system::install()
     local root_mount="$1"
     local -n config=$2
     local host_name
+    local encryption
+
+    host_name=$(echo "${config["computer_name"]}" | tr ' ' '-' | tr -dc '[:alnum:]-')
+
+    if [[ "${config["encryption_password"]}" != "" ]]; then
+        encryption=true
+    else
+        encryption=false
+    fi
 
     # sync the repos and re-init the key ring
     system::init_installer_keyring
@@ -850,7 +810,7 @@ function system::install()
     system::sync_installer_repositories
 
     # format the selected drive, create file systems and swap
-    disk::format "${config["drive"]}" "${config["uefi"]}" "${config["root_partition_size"]}" "${config["swap_partition_size"]}"
+    disk::format "${config["drive"]}" "${root_mount}" "${config["wipe_drive"]}" "${config["uefi"]}" "${config["root_partition_size"]}" "${config["swap_partition_size"]}" "${config["encryption_password"]}"
 
     # install the basic linux system
     system::install_base_linux "${root_mount}" "${config["kernel"]}" "${config["cpu_vendor"]}" "${config["install_micro_code"]}"
@@ -858,15 +818,23 @@ function system::install()
     # generate the file that keeps track of partitions
     system::generate_fstab "${root_mount}"
 
-    system::add_kernel_hook_after "${root_mount}" "lvm2" "block"
+    # set the required linux kernel hooks to make the install bootable
+    kernel::set_default_hooks "${root_mount}" "${encryption}"
+
+    # it seems like we need to install grub before finishing the encrypted file system setup
+    # otherwise, it will prompt for a password on the home lv instead of just the root lv
+    boot::install_boot_loader "${config["uefi"]}" "${config["drive"]}" "${root_mount}"
+
+    # finish setting up encrypted file systems
+    if $encryption; then
+        disk::make_encrypted_file_system_part_2 "${root_mount}" "${config["encryption_password"]}"
+    fi
 
     system::set_locale "${root_mount}" "${config["locale"]}"
 
     system::set_timezone "${root_mount}" "${config["timezone"]}"
 
     system::set_key_map "${root_mount}" "${config["key_map"]}"
-
-    host_name=$(echo "${config["computer_name"]}" | tr ' ' '-' | tr -dc '[:alnum:]-')
 
     system::set_hostname "${root_mount}" "${host_name}"
 
@@ -880,7 +848,7 @@ function system::install()
 
     system::create_users "${root_mount}" "${config["users"]}"
 
-    # enable 32 bit reop on new install
+    # enable 32 bit repos on new install
     system::enable_multilib "${root_mount}"
 
     if "${config["install_unofficial_repositories"]}"; then
@@ -888,8 +856,6 @@ function system::install()
     fi
 
     system::sync_repositories "${root_mount}"
-
-    boot::install_boot_loader "${config["uefi"]}" "${config["drive"]}" "${root_mount}"
 
     gpu_driver::install "${root_mount}" "${config["gpu_driver"]}" "${config["uefi"]}" "${config["cpu_vendor"]}"
 
